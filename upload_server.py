@@ -273,7 +273,7 @@ def view_images():
     """
     图片预览页面
     
-    根据配置决定是否启用该功能
+    根据配置决定是否启用该功能，需要API密钥验证
     """
     # 检查是否启用预览功能
     if not config.get("enable_view", False):
@@ -281,6 +281,17 @@ def view_images():
             "error": "图片预览功能未启用",
             "message": "请在 config.json 中设置 enable_view 为 true 以启用此功能"
         }), 404
+    
+    # 获取API密钥（支持URL参数和请求头）
+    api_key = request.args.get('key', '') or request.headers.get('X-API-KEY', '')
+    
+    # 如果未提供密钥，显示密钥输入页面
+    if not api_key:
+        return render_template('view_auth.html')
+    
+    # 验证API密钥
+    if api_key != config["api_key"]:
+        return render_template('view_auth.html', error="API密钥无效，请重新输入")
     
     # 获取图片列表
     image_list = get_image_list()

@@ -10,6 +10,7 @@
 - ✅ 文件自动命名：`comfyui_` + 8位随机数 + 扩展名
 - ✅ 完整的错误处理和日志记录
 - ✅ 支持配置文件或命令行参数
+- ✅ 图片预览功能（可选，通过配置启用）
 
 ## 快速开始
 
@@ -28,7 +29,8 @@ pip install -r requirements.txt
     "port": 65360,
     "api_key": "your_secret_key_here",
     "upload_dir": "images",
-    "max_file_size": 52428800
+    "max_file_size": 52428800,
+    "enable_view": false
 }
 ```
 
@@ -54,6 +56,7 @@ python upload_server.py --port 65360 --api-key your_secret_key_here
 - **api_key**: API验证密钥，必须与ComfyUI节点中输入的密钥一致
 - **upload_dir**: 上传文件保存目录，相对于server目录的父目录
 - **max_file_size**: 最大文件大小（字节），默认50MB
+- **enable_view**: 是否启用图片预览功能，默认false。设置为true后，可通过浏览器访问 `/view` 路径查看上传的图片列表
 
 ### 命令行参数
 
@@ -124,10 +127,84 @@ python upload_server.py [选项]
     "version": "1.0.0",
     "endpoints": {
         "upload": "/upload (POST)",
-        "health": "/health (GET)"
+        "health": "/health (GET)",
+        "view": "/view (GET)"
     }
 }
 ```
+
+### GET /view
+
+图片预览页面（需要启用 `enable_view` 配置和API密钥验证）
+
+**说明**：
+- 仅在 `config.json` 中设置 `"enable_view": true` 时可用
+- **需要API密钥验证**：必须提供正确的API密钥才能访问
+- 返回HTML页面，展示所有已上传的图片
+- 支持缩略图浏览和点击查看大图
+- 显示图片统计信息（总数、总大小）
+
+**访问方式**：
+
+1. **通过浏览器访问**（推荐）：
+   - 在浏览器中打开：`http://localhost:65360/view`（端口根据配置而定）
+   - 系统会显示密钥输入页面，输入正确的API密钥后即可访问
+
+2. **通过URL参数传递密钥**：
+   ```
+   http://localhost:65360/view?key=your_api_key_here
+   ```
+
+3. **通过请求头传递密钥**：
+   ```
+   X-API-KEY: your_api_key_here
+   ```
+
+**响应**：
+- 如果功能已启用且密钥正确：返回HTML预览页面
+- 如果功能已启用但未提供密钥：返回密钥输入页面
+- 如果功能已启用但密钥错误：返回密钥输入页面并显示错误提示
+- 如果功能未启用：返回404错误和提示信息
+
+### GET /images/<filename>
+
+直接访问图片文件
+
+**说明**：
+- 用于在预览页面中显示图片
+- 支持所有允许的图片格式（png, jpg, jpeg, gif, webp, bmp）
+- 包含安全检查，防止路径遍历攻击
+
+**示例**：
+```
+http://localhost:65360/images/comfyui_a3f5b2c1.png
+```
+
+## 图片预览功能
+
+### 启用预览功能
+
+1. 编辑 `config.json` 文件，设置 `"enable_view": true`
+2. 重启服务端
+3. 在浏览器中访问 `http://localhost:65360/view`（端口根据配置而定）
+4. 输入正确的API密钥（与 `config.json` 中的 `api_key` 一致）进行验证
+
+### 功能特点
+
+- 📸 **缩略图网格展示**：以响应式网格布局展示所有图片
+- 🔍 **点击查看大图**：点击缩略图可在模态框中查看完整图片
+- 📊 **统计信息**：显示图片总数和总大小
+- 📱 **响应式设计**：适配桌面和移动设备
+- ⚡ **懒加载**：图片使用懒加载技术，提升页面性能
+- 🎨 **现代化UI**：美观的渐变背景和流畅的动画效果
+
+### 安全说明
+
+- 预览功能默认关闭，需要手动在配置中启用
+- **API密钥验证**：访问预览页面必须提供正确的API密钥，防止未授权访问
+- 密钥可以通过URL参数（`?key=xxx`）或请求头（`X-API-KEY`）传递
+- 建议在生产环境中使用HTTPS，避免密钥在URL中明文传输
+- 建议定期更换API密钥以提高安全性
 
 ## 文件命名规则
 
