@@ -10,7 +10,7 @@ import logging
 import random
 import string
 from datetime import datetime
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, send_from_directory, render_template
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 
@@ -101,6 +101,47 @@ def generate_filename(original_filename):
     new_filename = f"comfyui_{random_str}.{ext}"
     
     return new_filename
+
+
+def get_image_list():
+    """
+    获取上传目录中的所有图片文件信息
+    
+    Returns:
+        list: 包含图片信息的字典列表，每个字典包含：
+            - filename: 文件名
+            - size: 文件大小（字节）
+            - modified_time: 修改时间（字符串格式）
+            - url: 图片访问URL
+    """
+    image_list = []
+    
+    if not os.path.exists(UPLOAD_FOLDER):
+        return image_list
+    
+    try:
+        for filename in os.listdir(UPLOAD_FOLDER):
+            if allowed_file(filename):
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                if os.path.isfile(file_path):
+                    file_stat = os.stat(file_path)
+                    modified_time = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                    image_list.append({
+                        "filename": filename,
+                        "size": file_stat.st_size,
+                        "modified_time": modified_time,
+                        "url": f"/images/{filename}"
+                    })
+        
+        # 按修改时间倒序排列（最新的在前）
+        image_list.sort(key=lambda x: x["modified_time"], reverse=True)
+        
+    except Exception as e:
+        logger.error(f"获取图片列表失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
+    return image_list
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -200,16 +241,92 @@ def health_check():
     }), 200
 
 
+@app.route('/images/<filename>', methods=['GET'])
+def serve_image(filename):
+    """
+    提供图片文件访问服务
+    
+    Args:
+        filename: 图片文件名
+    
+    Returns:
+        图片文件或404错误
+    """
+    # 安全检查：确保文件名安全
+    safe_filename = secure_filename(filename)
+    if safe_filename != filename:
+        abort(400, "Invalid filename")
+    
+    # 检查文件是否存在且是允许的类型
+    if not allowed_file(safe_filename):
+        abort(400, "File type not allowed")
+    
+    file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        abort(404, "File not found")
+    
+    return send_from_directory(UPLOAD_FOLDER, safe_filename)
+
+
+@app.route('/view', methods=['GET'])
+def view_images():
+    """
+    图片预览页面
+    
+    根据配置决定是否启用该功能
+    """
+    # 检查是否启用预览功能
+    if not config.get("enable_view", False):
+        return jsonify({
+            "error": "图片预览功能未启用",
+            "message": "请在 config.json 中设置 enable_view 为 true 以启用此功能"
+        }), 404
+    
+    # 获取图片列表
+    image_list = get_image_list()
+    
+    # 计算总大小
+    total_size = sum(img["size"] for img in image_list)
+    
+    # 格式化文件大小
+    def format_size(size_bytes):
+        if size_bytes == 0:
+            return "0 B"
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.2f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.2f} TB"
+    
+    # 为每个图片添加格式化的大小
+    for img in image_list:
+        img["size_formatted"] = format_size(img["size"])
+    
+    # 渲染HTML模板
+    return render_template(
+        'view.html',
+        image_list=image_list,
+        image_count=len(image_list),
+        total_size=format_size(total_size)
+    )
+
+
 @app.route('/', methods=['GET'])
 def index():
     """根路径，返回服务信息"""
+    endpoints = {
+        "upload": "/upload (POST)",
+        "health": "/health (GET)"
+    }
+    
+    # 如果启用了预览功能，添加到端点列表
+    if config.get("enable_view", False):
+        endpoints["view"] = "/view (GET)"
+    
     return jsonify({
         "service": "ComfyUI Remote Image Upload Server",
         "version": "1.0.0",
-        "endpoints": {
-            "upload": "/upload (POST)",
-            "health": "/health (GET)"
-        }
+        "endpoints": endpoints
     }), 200
 
 
