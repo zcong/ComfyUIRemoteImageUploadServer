@@ -1,0 +1,7 @@
+{
+    "port": 65360,
+    "api_key": "default_secret_key_change_me",
+    "upload_dir": "images",
+    "max_file_size": 52428800
+}
+
