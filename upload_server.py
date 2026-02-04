@@ -3,7 +3,7 @@
 ComfyUI远程图片上传服务端
 接收来自ComfyUI节点的图片上传请求
 """
-
+import time
 import os
 import json
 import logging
@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     "port": 65360,
     "api_key": "default_secret_key_change_me",
     "upload_dir": "images",
-    "max_file_size": 50 * 1024 * 1024  # 50MB
+    "max_file_size": 1024 * 1024 * 1024  # 1GB
 }
 
 # 加载配置
@@ -63,7 +63,13 @@ else:
 
 # 允许的文件扩展名
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
+ALLOWED_VIDEO_EXTENSIONS = {
+    "mp4", "mov", "mkv", "webm", "avi"
+}
 
+def allowed_video(filename):
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
 # 设置最大文件大小
 app.config['MAX_CONTENT_LENGTH'] = config.get("max_file_size", 50 * 1024 * 1024)
 
@@ -321,6 +327,53 @@ def view_images():
         total_size=format_size(total_size)
     )
 
+@app.route('/upload_video', methods=['POST'])
+def upload_video():
+    client_ip = request.remote_addr
+    logger.info(f"Video upload request from {client_ip}")
+
+    api_key = request.headers.get("X-API-KEY", "")
+    if api_key != config["api_key"]:
+        return jsonify({"error": "Invalid API key"}), 401
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "Empty filename"}), 400
+
+    if not allowed_video(file.filename):
+        return jsonify({
+            "error": "Invalid video type",
+            "allowed": list(ALLOWED_VIDEO_EXTENSIONS)
+        }), 400
+
+    original = secure_filename(file.filename)
+    new_name = generate_filename(original)
+    save_path = os.path.join(UPLOAD_FOLDER, new_name)
+
+    try:
+        start = time.time()
+        file.save(save_path)
+        cost = time.time() - start
+
+        size = os.path.getsize(save_path)
+        logger.info(
+            f"Video saved: {new_name}, size={size}, cost={cost:.2f}s"
+        )
+
+        return jsonify({
+            "message": "video uploaded",
+            "filename": new_name,
+            "size": size,
+            "path": save_path,
+            "cost_seconds": round(cost, 2)
+        }), 200
+
+    except Exception as e:
+        logger.exception("Save video failed")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/', methods=['GET'])
 def index():
