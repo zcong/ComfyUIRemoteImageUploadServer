@@ -150,6 +150,47 @@ def get_image_list():
     return image_list
 
 
+def get_video_list():
+    """
+    获取上传目录中的所有视频文件信息
+    
+    Returns:
+        list: 包含视频信息的字典列表，每个字典包含：
+            - filename: 文件名
+            - size: 文件大小（字节）
+            - modified_time: 修改时间（字符串格式）
+            - url: 视频访问URL
+    """
+    video_list = []
+    
+    if not os.path.exists(UPLOAD_FOLDER):
+        return video_list
+    
+    try:
+        for filename in os.listdir(UPLOAD_FOLDER):
+            if allowed_video(filename):
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                if os.path.isfile(file_path):
+                    file_stat = os.stat(file_path)
+                    modified_time = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                    video_list.append({
+                        "filename": filename,
+                        "size": file_stat.st_size,
+                        "modified_time": modified_time,
+                        "url": f"/videos/{filename}"
+                    })
+        
+        # 按修改时间倒序排列（最新的在前）
+        video_list.sort(key=lambda x: x["modified_time"], reverse=True)
+        
+    except Exception as e:
+        logger.error(f"获取视频列表失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
+    return video_list
+
+
 @app.errorhandler(RequestEntityTooLarge)
 def handle_file_too_large(e):
     """处理文件过大错误"""
@@ -274,17 +315,55 @@ def serve_image(filename):
     return send_from_directory(UPLOAD_FOLDER, safe_filename)
 
 
+@app.route('/videos/<filename>', methods=['GET'])
+def serve_video(filename):
+    """
+    提供视频文件访问服务
+    
+    Args:
+        filename: 视频文件名
+    
+    Returns:
+        视频文件或404错误
+    """
+    # 安全检查：确保文件名安全
+    safe_filename = secure_filename(filename)
+    if safe_filename != filename:
+        abort(400, "Invalid filename")
+    
+    # 检查文件是否存在且是允许的类型
+    if not allowed_video(safe_filename):
+        abort(400, "File type not allowed")
+    
+    file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        abort(404, "File not found")
+    
+    # 根据文件扩展名设置正确的 MIME 类型
+    ext = safe_filename.rsplit('.', 1)[1].lower() if '.' in safe_filename else 'mp4'
+    mime_types = {
+        'mp4': 'video/mp4',
+        'mov': 'video/quicktime',
+        'mkv': 'video/x-matroska',
+        'webm': 'video/webm',
+        'avi': 'video/x-msvideo',
+    }
+    mime_type = mime_types.get(ext, 'video/mp4')
+    
+    return send_from_directory(UPLOAD_FOLDER, safe_filename, mimetype=mime_type)
+
+
 @app.route('/view', methods=['GET'])
 def view_images():
     """
-    图片预览页面
+    图片和视频预览页面
     
     根据配置决定是否启用该功能，需要API密钥验证
     """
     # 检查是否启用预览功能
     if not config.get("enable_view", False):
         return jsonify({
-            "error": "图片预览功能未启用",
+            "error": "预览功能未启用",
             "message": "请在 config.json 中设置 enable_view 为 true 以启用此功能"
         }), 404
     
@@ -299,11 +378,12 @@ def view_images():
     if api_key != config["api_key"]:
         return render_template('view_auth.html', error="API密钥无效，请重新输入")
     
-    # 获取图片列表
+    # 获取图片和视频列表
     image_list = get_image_list()
+    video_list = get_video_list()
     
     # 计算总大小
-    total_size = sum(img["size"] for img in image_list)
+    total_size = sum(img["size"] for img in image_list) + sum(vid["size"] for vid in video_list)
     
     # 格式化文件大小
     def format_size(size_bytes):
@@ -319,11 +399,17 @@ def view_images():
     for img in image_list:
         img["size_formatted"] = format_size(img["size"])
     
+    # 为每个视频添加格式化的大小
+    for vid in video_list:
+        vid["size_formatted"] = format_size(vid["size"])
+    
     # 渲染HTML模板
     return render_template(
         'view.html',
         image_list=image_list,
+        video_list=video_list,
         image_count=len(image_list),
+        video_count=len(video_list),
         total_size=format_size(total_size)
     )
 
