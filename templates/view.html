@@ -223,6 +223,139 @@
             text-align: center;
         }
         
+        /* 上传区域样式 */
+        .upload-section {
+            padding: 20px 30px;
+            background: #ffffff;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        
+        .upload-text {
+            font-size: 1.1em;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .upload-hint {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        
+        .upload-btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .upload-btn:active {
+            transform: translateY(0);
+        }
+        
+        .upload-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .upload-progress {
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .upload-progress.active {
+            display: block;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            font-size: 0.9em;
+            color: #6c757d;
+            text-align: center;
+        }
+        
+        .upload-message {
+            margin-top: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            display: none;
+        }
+        
+        .upload-message.active {
+            display: block;
+        }
+        
+        .upload-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .upload-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
         @media (max-width: 768px) {
             .gallery {
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -259,6 +392,23 @@
             <div class="stats-info">
                 总大小: <strong>{{ total_size }}</strong>
             </div>
+        </div>
+        
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text">点击或拖拽图片到此处上传</div>
+                <div class="upload-hint">支持 PNG, JPG, JPEG, GIF, WEBP, BMP 格式</div>
+                <button class="upload-btn" id="uploadBtn">选择文件</button>
+                <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/bmp" multiple>
+            </div>
+            <div class="upload-progress" id="uploadProgress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">上传中...</div>
+            </div>
+            <div class="upload-message" id="uploadMessage"></div>
         </div>
         
         {% if image_list or video_list %}
@@ -369,6 +519,183 @@
             if (e.key === 'Escape') {
                 closeModal();
             }
+        });
+        
+        // ========== 图片上传功能 ==========
+        
+        // 从URL参数获取API密钥
+        function getApiKey() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('key') || '';
+        }
+        
+        // 获取上传区域和文件输入元素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const uploadMessage = document.getElementById('uploadMessage');
+        
+        // 显示消息
+        function showMessage(text, isError = false) {
+            uploadMessage.textContent = text;
+            uploadMessage.className = 'upload-message active ' + (isError ? 'error' : 'success');
+            setTimeout(() => {
+                uploadMessage.classList.remove('active');
+            }, isError ? 5000 : 3000);
+        }
+        
+        // 重置上传状态
+        function resetUploadState() {
+            uploadProgress.classList.remove('active');
+            progressFill.style.width = '0%';
+            progressText.textContent = '上传中...';
+            uploadBtn.disabled = false;
+            uploadArea.classList.remove('dragover');
+        }
+        
+        // 上传文件
+        async function uploadFile(file) {
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                showMessage('错误：未找到API密钥，请通过URL参数传递key', true);
+                return false;
+            }
+            
+            // 检查文件类型
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp'];
+            if (!allowedTypes.includes(file.type)) {
+                showMessage(`错误：不支持的文件类型 ${file.type}`, true);
+                return false;
+            }
+            
+            // 显示进度条
+            uploadProgress.classList.add('active');
+            uploadBtn.disabled = true;
+            progressFill.style.width = '0%';
+            progressText.textContent = `正在上传 ${file.name}...`;
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const xhr = new XMLHttpRequest();
+                
+                // 监听上传进度
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressFill.style.width = percentComplete + '%';
+                        progressText.textContent = `上传中... ${Math.round(percentComplete)}%`;
+                    }
+                });
+                
+                // 处理响应
+                xhr.addEventListener('load', function() {
+                    if (xhr.status === 200) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            progressFill.style.width = '100%';
+                            progressText.textContent = '上传成功！';
+                            showMessage(`上传成功：${response.filename}`, false);
+                            
+                            // 延迟刷新页面，让用户看到成功消息
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } catch (e) {
+                            showMessage('上传成功，但解析响应失败', false);
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        }
+                    } else {
+                        let errorMsg = '上传失败';
+                        try {
+                            const error = JSON.parse(xhr.responseText);
+                            errorMsg = error.error || errorMsg;
+                        } catch (e) {
+                            errorMsg = `上传失败，状态码：${xhr.status}`;
+                        }
+                        showMessage(errorMsg, true);
+                        resetUploadState();
+                    }
+                });
+                
+                // 处理错误
+                xhr.addEventListener('error', function() {
+                    showMessage('网络错误：无法连接到服务器', true);
+                    resetUploadState();
+                });
+                
+                // 发送请求
+                xhr.open('POST', '/upload');
+                xhr.setRequestHeader('X-API-KEY', apiKey);
+                xhr.send(formData);
+                
+            } catch (error) {
+                showMessage(`上传失败：${error.message}`, true);
+                resetUploadState();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // 处理文件选择
+        fileInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            // 逐个上传文件
+            files.forEach((file, index) => {
+                setTimeout(() => {
+                    uploadFile(file);
+                }, index * 100); // 稍微延迟，避免同时上传多个文件
+            });
+            
+            // 重置文件输入
+            fileInput.value = '';
+        });
+        
+        // 拖拽上传功能
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = Array.from(e.dataTransfer.files).filter(file => {
+                return file.type.startsWith('image/');
+            });
+            
+            if (files.length === 0) {
+                showMessage('错误：请拖拽图片文件', true);
+                return;
+            }
+            
+            // 逐个上传文件
+            files.forEach((file, index) => {
+                setTimeout(() => {
+                    uploadFile(file);
+                }, index * 100);
+            });
+        });
+        
+        // 点击上传按钮
+        uploadBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileInput.click();
         });
     </script>
 </body>
