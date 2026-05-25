@@ -7,8 +7,6 @@ import time
 import os
 import json
 import logging
-import random
-import string
 from datetime import datetime
 from flask import Flask, request, jsonify, abort, send_from_directory, render_template
 from werkzeug.utils import secure_filename
@@ -66,27 +64,102 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
 ALLOWED_VIDEO_EXTENSIONS = {
     "mp4", "mov", "mkv", "webm", "avi"
 }
-
-def allowed_video(filename):
-    return '.' in filename and \
-        filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
+BASE36_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+VIDEO_MIME_TYPES = {
+    "mp4": "video/mp4",
+    "mov": "video/quicktime",
+    "mkv": "video/x-matroska",
+    "webm": "video/webm",
+    "avi": "video/x-msvideo",
+}
 # 设置最大文件大小
 app.config['MAX_CONTENT_LENGTH'] = config.get("max_file_size", 50 * 1024 * 1024)
 
 
+def has_allowed_extension(filename, allowed_extensions):
+    """检查文件扩展名是否允许。"""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
+
+
 def allowed_file(filename):
-    """检查文件扩展名是否允许"""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    """检查图片扩展名是否允许。"""
+    return has_allowed_extension(filename, ALLOWED_EXTENSIONS)
 
 
-def generate_random_string(length=8):
-    """生成随机字符串"""
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+def allowed_video(filename):
+    """检查视频扩展名是否允许。"""
+    return has_allowed_extension(filename, ALLOWED_VIDEO_EXTENSIONS)
+
+
+def validate_api_key(api_key):
+    """验证 API 密钥。"""
+    return bool(api_key) and api_key == config["api_key"]
+
+
+def require_api_key(client_ip, action_label):
+    """统一处理 API 密钥校验。"""
+    api_key = request.headers.get("X-API-KEY", "")
+    if not api_key:
+        logger.warning(f"{action_label}缺少 API 密钥，来源IP: {client_ip}")
+        return None, jsonify({"error": "缺少API密钥"}), 401
+    if not validate_api_key(api_key):
+        logger.warning(f"{action_label} API 密钥无效，来源IP: {client_ip}")
+        return None, jsonify({"error": "API密钥无效"}), 401
+    return api_key, None, None
+
+
+def get_media_config(media_type):
+    """返回媒体类型对应的校验函数、URL 前缀和显示名称。"""
+    media_map = {
+        "image": {
+            "label": "图片",
+            "allowed": allowed_file,
+            "url_prefix": "/images",
+        },
+        "video": {
+            "label": "视频",
+            "allowed": allowed_video,
+            "url_prefix": "/videos",
+        },
+    }
+    return media_map[media_type]
+
+
+def resolve_media_path(filename, media_type):
+    """校验文件名并返回对应媒体文件的绝对路径。"""
+    safe_filename = secure_filename(filename)
+    if safe_filename != filename:
+        abort(400, "Invalid filename")
+
+    media_config = get_media_config(media_type)
+    if not media_config["allowed"](safe_filename):
+        abort(400, "File type not allowed")
+
+    file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        abort(404, "File not found")
+
+    return safe_filename, file_path
+
+
+def encode_base36(number, min_width=1):
+    """将非负整数编码为固定宽度的 base36 字符串，便于短文件名按字典序排序。"""
+    if number < 0:
+        raise ValueError("number must be non-negative")
+    if number == 0:
+        encoded = "0"
+    else:
+        chars = []
+        while number:
+            number, remainder = divmod(number, 36)
+            chars.append(BASE36_ALPHABET[remainder])
+        encoded = "".join(reversed(chars))
+    return encoded.rjust(min_width, "0")
 
 
 def generate_filename(original_filename):
     """
-    生成新文件名：comfyui_ + 随机数 + 原始扩展名
+    生成按时间可排序的新文件名。
     
     Args:
         original_filename: 原始文件名
@@ -94,101 +167,124 @@ def generate_filename(original_filename):
     Returns:
         新文件名
     """
-    # 获取文件扩展名
     if '.' in original_filename:
         ext = original_filename.rsplit('.', 1)[1].lower()
     else:
-        ext = 'png'  # 默认使用png
-    
-    # 生成随机数（8位）
-    random_str = generate_random_string(8)
-    
-    # 组合文件名
-    new_filename = f"comfyui_{random_str}.{ext}"
-    
-    return new_filename
+        ext = 'png'
+
+    prefix = "v" if ext in ALLOWED_VIDEO_EXTENSIONS else "i"
+    timestamp = encode_base36(int(time.time() * 1000), min_width=8)
+    return f"{prefix}_{timestamp}.{ext}"
 
 
-def get_image_list():
-    """
-    获取上传目录中的所有图片文件信息
-    
-    Returns:
-        list: 包含图片信息的字典列表，每个字典包含：
-            - filename: 文件名
-            - size: 文件大小（字节）
-            - modified_time: 修改时间（字符串格式）
-            - url: 图片访问URL
-    """
-    image_list = []
-    
+def build_unique_save_path(filename):
+    """为文件名生成不冲突的保存路径。"""
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.exists(save_path):
+        timestamp = encode_base36(time.time_ns() % (36 ** 2), min_width=2)
+        name, ext = os.path.splitext(filename)
+        filename = f"{name}_{timestamp}{ext}"
+        save_path = os.path.join(UPLOAD_FOLDER, filename)
+    return filename, save_path
+
+
+def build_media_entry(filename, file_stat, url_prefix):
+    """构建媒体列表项。"""
+    modified_timestamp = file_stat.st_mtime
+    return {
+        "filename": filename,
+        "size": file_stat.st_size,
+        "modified_timestamp": modified_timestamp,
+        "modified_time": datetime.fromtimestamp(modified_timestamp).strftime("%Y-%m-%d %H:%M:%S"),
+        "url": f"{url_prefix}/{filename}",
+    }
+
+
+def get_media_list(media_type):
+    """获取指定类型的媒体文件列表。"""
+    media_list = []
     if not os.path.exists(UPLOAD_FOLDER):
-        return image_list
-    
+        return media_list
+
+    media_config = get_media_config(media_type)
+
     try:
         for filename in os.listdir(UPLOAD_FOLDER):
-            if allowed_file(filename):
-                file_path = os.path.join(UPLOAD_FOLDER, filename)
-                if os.path.isfile(file_path):
-                    file_stat = os.stat(file_path)
-                    modified_time = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-                    image_list.append({
-                        "filename": filename,
-                        "size": file_stat.st_size,
-                        "modified_time": modified_time,
-                        "url": f"/images/{filename}"
-                    })
-        
-        # 按修改时间倒序排列（最新的在前）
-        image_list.sort(key=lambda x: x["modified_time"], reverse=True)
-        
+            if not media_config["allowed"](filename):
+                continue
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.isfile(file_path):
+                media_list.append(
+                    build_media_entry(
+                        filename=filename,
+                        file_stat=os.stat(file_path),
+                        url_prefix=media_config["url_prefix"],
+                    )
+                )
+
+        media_list.sort(
+            key=lambda x: (x["modified_timestamp"], x["filename"]),
+            reverse=True,
+        )
+
     except Exception as e:
-        logger.error(f"获取图片列表失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    
-    return image_list
+        logger.exception(f"获取{media_config['label']}列表失败: {e}")
+
+    return media_list
 
 
-def get_video_list():
-    """
-    获取上传目录中的所有视频文件信息
-    
-    Returns:
-        list: 包含视频信息的字典列表，每个字典包含：
-            - filename: 文件名
-            - size: 文件大小（字节）
-            - modified_time: 修改时间（字符串格式）
-            - url: 视频访问URL
-    """
-    video_list = []
-    
-    if not os.path.exists(UPLOAD_FOLDER):
-        return video_list
-    
+def format_size(size_bytes):
+    """格式化文件大小。"""
+    if size_bytes == 0:
+        return "0 B"
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} TB"
+
+
+def save_uploaded_file(file_storage, media_type, client_ip):
+    """保存上传的文件并返回响应数据。"""
+    media_config = get_media_config(media_type)
+    original_filename = secure_filename(file_storage.filename)
+    new_filename, save_path = build_unique_save_path(generate_filename(original_filename))
+
     try:
-        for filename in os.listdir(UPLOAD_FOLDER):
-            if allowed_video(filename):
-                file_path = os.path.join(UPLOAD_FOLDER, filename)
-                if os.path.isfile(file_path):
-                    file_stat = os.stat(file_path)
-                    modified_time = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-                    video_list.append({
-                        "filename": filename,
-                        "size": file_stat.st_size,
-                        "modified_time": modified_time,
-                        "url": f"/videos/{filename}"
-                    })
-        
-        # 按修改时间倒序排列（最新的在前）
-        video_list.sort(key=lambda x: x["modified_time"], reverse=True)
-        
+        start = time.time()
+        file_storage.save(save_path)
+        cost = time.time() - start
+        file_size = os.path.getsize(save_path)
+        logger.info(
+            f"{media_config['label']}上传成功: {new_filename} ({file_size} bytes)，来源IP: {client_ip}"
+        )
+        return {
+            "message": f"{media_config['label']}上传成功",
+            "filename": new_filename,
+            "size": file_size,
+            "path": save_path,
+            "cost_seconds": round(cost, 2),
+        }, 200
     except Exception as e:
-        logger.error(f"获取视频列表失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    
-    return video_list
+        logger.exception(f"保存{media_config['label']}失败")
+        return {
+            "error": f"保存{media_config['label']}失败",
+            "details": str(e),
+        }, 500
+
+
+def delete_media_file(filename, media_type, client_ip):
+    """删除指定媒体文件。"""
+    media_config = get_media_config(media_type)
+    safe_filename, file_path = resolve_media_path(filename, media_type)
+
+    try:
+        os.remove(file_path)
+        logger.info(f"{media_config['label']}删除成功: {safe_filename}，来源IP: {client_ip}")
+        return {"message": f"{media_config['label']}删除成功", "filename": safe_filename}, 200
+    except Exception as e:
+        logger.exception(f"删除{media_config['label']}失败")
+        return {"error": f"删除{media_config['label']}失败", "details": str(e)}, 500
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -210,17 +306,11 @@ def upload_file():
     """
     client_ip = request.remote_addr
     logger.info(f"收到上传请求，来源IP: {client_ip}")
-    
-    # 验证API密钥
-    api_key = request.headers.get("X-API-KEY", "")
-    if not api_key:
-        logger.warning(f"请求缺少API密钥，来源IP: {client_ip}")
-        return jsonify({"error": "缺少API密钥"}), 401
-    
-    if api_key != config["api_key"]:
-        logger.warning(f"API密钥验证失败，来源IP: {client_ip}")
-        return jsonify({"error": "API密钥无效"}), 401
-    
+
+    _, error_response, status_code = require_api_key(client_ip, "图片上传")
+    if error_response is not None:
+        return error_response, status_code
+
     logger.info(f"API密钥验证通过，来源IP: {client_ip}")
     
     # 检查文件是否存在
@@ -243,39 +333,8 @@ def upload_file():
             "allowed_types": list(ALLOWED_EXTENSIONS)
         }), 400
     
-    # 生成新文件名
-    original_filename = secure_filename(file.filename)
-    new_filename = generate_filename(original_filename)
-    save_path = os.path.join(UPLOAD_FOLDER, new_filename)
-    
-    # 确保文件名唯一（如果文件已存在，添加时间戳）
-    if os.path.exists(save_path):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        name, ext = os.path.splitext(new_filename)
-        new_filename = f"{name}_{timestamp}{ext}"
-        save_path = os.path.join(UPLOAD_FOLDER, new_filename)
-    
-    try:
-        # 保存文件
-        file.save(save_path)
-        file_size = os.path.getsize(save_path)
-        logger.info(f"文件上传成功: {new_filename} ({file_size} bytes)，来源IP: {client_ip}")
-        
-        return jsonify({
-            "message": "文件上传成功",
-            "filename": new_filename,
-            "size": file_size,
-            "path": save_path
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"保存文件失败: {str(e)}，来源IP: {client_ip}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            "error": "保存文件失败",
-            "details": str(e)
-        }), 500
+    payload, status_code = save_uploaded_file(file, "image", client_ip)
+    return jsonify(payload), status_code
 
 
 @app.route('/health', methods=['GET'])
@@ -300,18 +359,7 @@ def serve_image(filename):
         图片文件或404错误
     """
     # 安全检查：确保文件名安全
-    safe_filename = secure_filename(filename)
-    if safe_filename != filename:
-        abort(400, "Invalid filename")
-    
-    # 检查文件是否存在且是允许的类型
-    if not allowed_file(safe_filename):
-        abort(400, "File type not allowed")
-    
-    file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
-    if not os.path.exists(file_path) or not os.path.isfile(file_path):
-        abort(404, "File not found")
-    
+    safe_filename, _ = resolve_media_path(filename, "image")
     return send_from_directory(UPLOAD_FOLDER, safe_filename)
 
 
@@ -327,30 +375,37 @@ def serve_video(filename):
         视频文件或404错误
     """
     # 安全检查：确保文件名安全
-    safe_filename = secure_filename(filename)
-    if safe_filename != filename:
-        abort(400, "Invalid filename")
-    
-    # 检查文件是否存在且是允许的类型
-    if not allowed_video(safe_filename):
-        abort(400, "File type not allowed")
-    
-    file_path = os.path.join(UPLOAD_FOLDER, safe_filename)
-    if not os.path.exists(file_path) or not os.path.isfile(file_path):
-        abort(404, "File not found")
+    safe_filename, _ = resolve_media_path(filename, "video")
     
     # 根据文件扩展名设置正确的 MIME 类型
     ext = safe_filename.rsplit('.', 1)[1].lower() if '.' in safe_filename else 'mp4'
-    mime_types = {
-        'mp4': 'video/mp4',
-        'mov': 'video/quicktime',
-        'mkv': 'video/x-matroska',
-        'webm': 'video/webm',
-        'avi': 'video/x-msvideo',
-    }
-    mime_type = mime_types.get(ext, 'video/mp4')
+    mime_type = VIDEO_MIME_TYPES.get(ext, 'video/mp4')
     
     return send_from_directory(UPLOAD_FOLDER, safe_filename, mimetype=mime_type)
+
+
+@app.route('/images/<filename>', methods=['DELETE'])
+def delete_image(filename):
+    """删除图片文件。"""
+    client_ip = request.remote_addr
+    _, error_response, status_code = require_api_key(client_ip, "删除图片")
+    if error_response is not None:
+        return error_response, status_code
+
+    payload, status_code = delete_media_file(filename, "image", client_ip)
+    return jsonify(payload), status_code
+
+
+@app.route('/videos/<filename>', methods=['DELETE'])
+def delete_video(filename):
+    """删除视频文件。"""
+    client_ip = request.remote_addr
+    _, error_response, status_code = require_api_key(client_ip, "删除视频")
+    if error_response is not None:
+        return error_response, status_code
+
+    payload, status_code = delete_media_file(filename, "video", client_ip)
+    return jsonify(payload), status_code
 
 
 @app.route('/view', methods=['GET'])
@@ -375,25 +430,15 @@ def view_images():
         return render_template('view_auth.html')
     
     # 验证API密钥
-    if api_key != config["api_key"]:
+    if not validate_api_key(api_key):
         return render_template('view_auth.html', error="API密钥无效，请重新输入")
     
     # 获取图片和视频列表
-    image_list = get_image_list()
-    video_list = get_video_list()
+    image_list = get_media_list("image")
+    video_list = get_media_list("video")
     
     # 计算总大小
     total_size = sum(img["size"] for img in image_list) + sum(vid["size"] for vid in video_list)
-    
-    # 格式化文件大小
-    def format_size(size_bytes):
-        if size_bytes == 0:
-            return "0 B"
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size_bytes < 1024.0:
-                return f"{size_bytes:.2f} {unit}"
-            size_bytes /= 1024.0
-        return f"{size_bytes:.2f} TB"
     
     # 为每个图片添加格式化的大小
     for img in image_list:
@@ -418,9 +463,9 @@ def upload_video():
     client_ip = request.remote_addr
     logger.info(f"Video upload request from {client_ip}")
 
-    api_key = request.headers.get("X-API-KEY", "")
-    if api_key != config["api_key"]:
-        return jsonify({"error": "Invalid API key"}), 401
+    _, error_response, status_code = require_api_key(client_ip, "视频上传")
+    if error_response is not None:
+        return error_response, status_code
 
     if 'file' not in request.files:
         return jsonify({"error": "No file"}), 400
@@ -435,31 +480,8 @@ def upload_video():
             "allowed": list(ALLOWED_VIDEO_EXTENSIONS)
         }), 400
 
-    original = secure_filename(file.filename)
-    new_name = generate_filename(original)
-    save_path = os.path.join(UPLOAD_FOLDER, new_name)
-
-    try:
-        start = time.time()
-        file.save(save_path)
-        cost = time.time() - start
-
-        size = os.path.getsize(save_path)
-        logger.info(
-            f"Video saved: {new_name}, size={size}, cost={cost:.2f}s"
-        )
-
-        return jsonify({
-            "message": "video uploaded",
-            "filename": new_name,
-            "size": size,
-            "path": save_path,
-            "cost_seconds": round(cost, 2)
-        }), 200
-
-    except Exception as e:
-        logger.exception("Save video failed")
-        return jsonify({"error": str(e)}), 500
+    payload, status_code = save_uploaded_file(file, "video", client_ip)
+    return jsonify(payload), status_code
 
 @app.route('/', methods=['GET'])
 def index():
@@ -528,4 +550,3 @@ if __name__ == "__main__":
         port=args.port,
         debug=args.debug
     )
-
