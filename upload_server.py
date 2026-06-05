@@ -11,6 +11,7 @@ from datetime import datetime
 from flask import Flask, request, jsonify, abort, send_from_directory, render_template
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
+from remote_workflow_runner import create_remote_runner_routes
 
 # 配置日志
 logging.basicConfig(
@@ -242,6 +243,9 @@ def format_size(size_bytes):
             return f"{size_bytes:.2f} {unit}"
         size_bytes /= 1024.0
     return f"{size_bytes:.2f} TB"
+
+
+create_remote_runner_routes(app, logger, media_list_getter=get_media_list, app_config=config)
 
 
 def save_uploaded_file(file_storage, media_type, client_ip):
@@ -488,7 +492,8 @@ def index():
     """根路径，返回服务信息"""
     endpoints = {
         "upload": "/upload (POST)",
-        "health": "/health (GET)"
+        "health": "/health (GET)",
+        "remote_runner": "/remote-runner (GET)",
     }
     
     # 如果启用了预览功能，添加到端点列表
