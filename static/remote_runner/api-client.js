@@ -18,8 +18,13 @@ export const apiClient = {
   async getConfig() {
     return requestJson("/api/remote-runner/config");
   },
-  async getMedia() {
-    return requestJson("/api/remote-runner/media");
+  async getMedia({ bustCache = false } = {}) {
+    const params = new URLSearchParams();
+    if (bustCache) {
+      params.set("_ts", String(Date.now()));
+    }
+    const query = params.toString();
+    return requestJson(`/api/remote-runner/media${query ? `?${query}` : ""}`);
   },
   async loadWorkflow(workflowFile) {
     const formData = new FormData();

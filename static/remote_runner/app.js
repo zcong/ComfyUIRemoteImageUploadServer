@@ -5,6 +5,8 @@ import { buildWorkflow } from "./workflow-builder.js";
 import { TextareaField, ImagePickerField } from "./form-renderer.js";
 import { JobMonitor } from "./job-monitor.js";
 
+const BASE_URL_STORAGE_KEY = "remote-runner.base-url";
+
 const state = {
   config: { ...defaultConfig },
   workflowTemplate: null,
@@ -52,6 +54,13 @@ const monitor = new JobMonitor({
 
 function syncConfigFromInputs() {
   state.config.baseUrl = elements.baseUrl.value.trim();
+  window.localStorage.setItem(BASE_URL_STORAGE_KEY, state.config.baseUrl);
+}
+
+async function refreshMediaItems() {
+  const mediaPayload = await apiClient.getMedia({ bustCache: true });
+  state.mediaItems = mediaPayload.items ?? [];
+  return state.mediaItems;
 }
 
 function renderSummary() {
@@ -97,6 +106,7 @@ function renderDynamicForm() {
             mediaItems: state.mediaItems,
             serverOrigin: window.location.origin,
             uploadDir: state.uploadDir,
+            onOpen: refreshMediaItems,
           })
         : TextareaField(item, currentValue, onChange);
     elements.dynamicForm.append(node);
@@ -148,10 +158,13 @@ function renderResults(results) {
 
 async function bootstrap() {
   const payload = await apiClient.getConfig().catch(() => ({ defaults: defaultConfig }));
-  const mediaPayload = await apiClient.getMedia().catch(() => ({ items: [] }));
   Object.assign(state.config, payload.defaults ?? {});
-  state.mediaItems = mediaPayload.items ?? [];
   state.uploadDir = payload.uploadDir ?? "images";
+  const savedBaseUrl = window.localStorage.getItem(BASE_URL_STORAGE_KEY)?.trim();
+  if (savedBaseUrl) {
+    state.config.baseUrl = savedBaseUrl;
+  }
+  state.mediaItems = (await apiClient.getMedia().catch(() => ({ items: [] }))).items ?? [];
 
   elements.baseUrl.value = state.config.baseUrl;
   renderStatus("idle", "等待加载 workflow。");
@@ -223,6 +236,10 @@ elements.runButton.addEventListener("click", () => {
 
 elements.refreshResultsButton.addEventListener("click", () => {
   handleRefreshResults().catch((error) => renderStatus("failed", error.message || "刷新结果失败"));
+});
+
+elements.baseUrl.addEventListener("input", () => {
+  syncConfigFromInputs();
 });
 
 bootstrap();
