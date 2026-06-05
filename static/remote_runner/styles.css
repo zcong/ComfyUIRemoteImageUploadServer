@@ -129,6 +129,14 @@ body {
   font-weight: 700;
 }
 
+.field-help {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .field input,
 select,
 textarea {
@@ -145,13 +153,6 @@ textarea {
   resize: vertical;
   min-height: 120px;
   line-height: 1.6;
-}
-
-.field-combo {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: end;
 }
 
 .config-actions {

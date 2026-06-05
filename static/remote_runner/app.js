@@ -9,20 +9,18 @@ const state = {
   config: { ...defaultConfig },
   workflowTemplate: null,
   workflowName: "",
-  workflowOptions: [],
   placeholders: [],
   formState: {},
   promptId: "",
   results: [],
   mediaItems: [],
   uploadDir: "images",
+  workflowFile: null,
 };
 
 const elements = {
   baseUrl: document.querySelector("#base-url"),
-  workflowSelect: document.querySelector("#workflow-select"),
-  workflowName: document.querySelector("#workflow-name"),
-  loadWorkflowListButton: document.querySelector("#load-workflow-list-button"),
+  workflowFile: document.querySelector("#workflow-file"),
   loadWorkflowButton: document.querySelector("#load-workflow-button"),
   runButton: document.querySelector("#run-button"),
   refreshResultsButton: document.querySelector("#refresh-results-button"),
@@ -54,27 +52,6 @@ const monitor = new JobMonitor({
 
 function syncConfigFromInputs() {
   state.config.baseUrl = elements.baseUrl.value.trim();
-  state.config.workflowName = elements.workflowName.value.trim();
-}
-
-function buildWorkflowSelectorValue(workflowPath) {
-  return encodeURIComponent(`workflows/${workflowPath}`);
-}
-
-function renderWorkflowOptions() {
-  elements.workflowSelect.innerHTML = "";
-
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = state.workflowOptions.length > 0 ? "请选择 workflow" : "先加载 workflow 列表";
-  elements.workflowSelect.append(placeholder);
-
-  state.workflowOptions.forEach((item) => {
-    const option = document.createElement("option");
-    option.value = buildWorkflowSelectorValue(item.path);
-    option.textContent = item.path;
-    elements.workflowSelect.append(option);
-  });
 }
 
 function renderSummary() {
@@ -177,26 +154,21 @@ async function bootstrap() {
   state.uploadDir = payload.uploadDir ?? "images";
 
   elements.baseUrl.value = state.config.baseUrl;
-  elements.workflowName.value = state.config.workflowName;
-  renderWorkflowOptions();
   renderStatus("idle", "等待加载 workflow。");
   renderResults([]);
 }
 
-async function handleLoadWorkflowList() {
-  syncConfigFromInputs();
-  renderStatus("running", "正在加载 workflow 列表...");
-  const payload = await apiClient.listWorkflows(state.config.baseUrl);
-  state.workflowOptions = payload.items ?? [];
-  renderWorkflowOptions();
-  renderStatus("idle", `已加载 ${state.workflowOptions.length} 个 workflow。`);
-}
-
 async function handleLoadWorkflow() {
   syncConfigFromInputs();
-  renderStatus("running", "正在从远端加载 workflow...");
+  const [workflowFile] = elements.workflowFile.files ?? [];
+  if (!workflowFile) {
+    throw new Error("请先选择一个 API workflow JSON 文件");
+  }
 
-  const payload = await loadWorkflow(state.config.baseUrl, state.config.workflowName);
+  state.workflowFile = workflowFile;
+  renderStatus("running", "正在解析上传的 API workflow...");
+
+  const payload = await loadWorkflow(workflowFile);
   state.workflowTemplate = payload.workflow;
   state.workflowName = payload.workflowName;
   state.placeholders = payload.placeholders;
@@ -207,7 +179,7 @@ async function handleLoadWorkflow() {
   renderSummary();
   renderDynamicForm();
   renderResults([]);
-  renderStatus("idle", "Workflow 已加载，可以填写表单并运行。");
+  renderStatus("idle", "API workflow 已加载，可以填写表单并运行。");
 }
 
 async function handleRunWorkflow() {
@@ -240,15 +212,6 @@ async function handleRefreshResults() {
   state.results = payload.results ?? [];
   renderResults(state.results);
 }
-
-elements.loadWorkflowListButton.addEventListener("click", () => {
-  handleLoadWorkflowList().catch((error) => renderStatus("failed", error.message || "加载 workflow 列表失败"));
-});
-
-elements.workflowSelect.addEventListener("change", () => {
-  elements.workflowName.value = elements.workflowSelect.value;
-  syncConfigFromInputs();
-});
 
 elements.loadWorkflowButton.addEventListener("click", () => {
   handleLoadWorkflow().catch((error) => renderStatus("failed", error.message || "加载 workflow 失败"));

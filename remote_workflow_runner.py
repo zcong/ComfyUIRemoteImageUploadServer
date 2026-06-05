@@ -108,18 +108,87 @@ def is_non_executable_editor_node(node: dict[str, Any]) -> bool:
     return False
 
 
+def is_bypassed_editor_node(node: dict[str, Any]) -> bool:
+    return int(node.get("mode", 0) or 0) == 4
+
+
+def select_bypass_input_link(node: dict[str, Any], output_slot: int) -> int | None:
+    inputs = node.get("inputs", [])
+    outputs = node.get("outputs", [])
+    output_type = None
+    if 0 <= output_slot < len(outputs) and isinstance(outputs[output_slot], dict):
+        output_type = str(outputs[output_slot].get("type") or "").strip()
+
+    typed_match: int | None = None
+    first_linked_input: int | None = None
+
+    for input_item in inputs:
+        if not isinstance(input_item, dict):
+            continue
+        link_id = input_item.get("link")
+        if link_id is None:
+            continue
+        if first_linked_input is None:
+            first_linked_input = int(link_id)
+        input_type = str(input_item.get("type") or "").strip()
+        if output_type and input_type == output_type:
+            typed_match = int(link_id)
+            break
+
+    return typed_match if typed_match is not None else first_linked_input
+
+
 def convert_editor_workflow_to_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
-    link_map: dict[int, list[Any]] = {}
+    node_map: dict[str, dict[str, Any]] = {}
+    for node in workflow.get("nodes", []):
+        if isinstance(node, dict) and node.get("id") is not None:
+            node_map[str(node.get("id"))] = node
+
+    raw_link_map: dict[int, dict[str, Any]] = {}
     for link in workflow.get("links", []):
         if isinstance(link, list) and len(link) >= 4:
             link_id = int(link[0])
             origin_node_id = str(link[1])
             origin_slot = int(link[2])
-            link_map[link_id] = [origin_node_id, origin_slot]
+            raw_link_map[link_id] = {
+                "origin_node_id": origin_node_id,
+                "origin_slot": origin_slot,
+            }
+
+    resolved_link_map: dict[int, list[Any] | None] = {}
+
+    def resolve_link_source(link_id: int, trail: set[int] | None = None) -> list[Any] | None:
+        if link_id in resolved_link_map:
+            return resolved_link_map[link_id]
+
+        active_trail = set(trail or set())
+        if link_id in active_trail:
+            link_info = raw_link_map.get(link_id)
+            if not link_info:
+                return None
+            return [link_info["origin_node_id"], link_info["origin_slot"]]
+        active_trail.add(link_id)
+
+        link_info = raw_link_map.get(link_id)
+        if not link_info:
+            resolved_link_map[link_id] = None
+            return None
+
+        origin_node = node_map.get(link_info["origin_node_id"])
+        if origin_node and is_bypassed_editor_node(origin_node):
+            bypass_link_id = select_bypass_input_link(origin_node, link_info["origin_slot"])
+            if bypass_link_id is not None:
+                resolved = resolve_link_source(bypass_link_id, active_trail)
+                resolved_link_map[link_id] = resolved
+                return resolved
+
+        resolved = [link_info["origin_node_id"], link_info["origin_slot"]]
+        resolved_link_map[link_id] = resolved
+        return resolved
 
     prompt: dict[str, Any] = {}
     for node in workflow.get("nodes", []):
-        if is_non_executable_editor_node(node):
+        if is_non_executable_editor_node(node) or is_bypassed_editor_node(node):
             continue
 
         node_id = str(node.get("id"))
@@ -140,7 +209,7 @@ def convert_editor_workflow_to_prompt(workflow: dict[str, Any]) -> dict[str, Any
 
             link_id = input_item.get("link")
             if link_id is not None:
-                linked_value = link_map.get(int(link_id))
+                linked_value = resolve_link_source(int(link_id))
                 if linked_value is not None:
                     prompt_node["inputs"][input_name] = linked_value
                 continue
@@ -272,6 +341,99 @@ def apply_params(workflow: dict[str, Any], form_state: dict[str, Any]) -> dict[s
             write_path(cloned[item["nodeId"]], item["fieldPath"], image_value)
 
     return cloned
+
+
+def collect_missing_prompt_node_references(workflow: Any) -> list[dict[str, str]]:
+    if not isinstance(workflow, dict):
+        return []
+
+    existing_node_ids = {str(node_id) for node_id in workflow.keys()}
+    missing_refs: list[dict[str, str]] = []
+
+    for node_id, node_data in workflow.items():
+        if not isinstance(node_data, dict):
+            continue
+
+        class_type = str(node_data.get("class_type") or "").strip() or str(node_id)
+        inputs = node_data.get("inputs", {})
+        if not isinstance(inputs, dict):
+            continue
+
+        for input_name, input_value in inputs.items():
+            if not (
+                isinstance(input_value, list)
+                and len(input_value) >= 2
+                and isinstance(input_value[0], (str, int))
+            ):
+                continue
+
+            referenced_node_id = str(input_value[0])
+            if referenced_node_id in existing_node_ids:
+                continue
+
+            missing_refs.append(
+                {
+                    "nodeId": str(node_id),
+                    "classType": class_type,
+                    "inputName": str(input_name),
+                    "referencedNodeId": referenced_node_id,
+                }
+            )
+
+    return missing_refs
+
+
+def ensure_prompt_graph_is_valid(workflow: Any) -> None:
+    missing_refs = collect_missing_prompt_node_references(workflow)
+    if not missing_refs:
+        return
+
+    first_ref = missing_refs[0]
+    raise RuntimeError(
+        "API workflow 中包含失效的节点引用。"
+        f"例如节点 {first_ref['nodeId']} ({first_ref['classType']}) 的输入 `{first_ref['inputName']}` "
+        f"引用了不存在的节点 `{first_ref['referencedNodeId']}`。"
+        "请重新从 ComfyUI 导出 API workflow，或检查该文件是否完整。"
+    )
+
+
+def parse_uploaded_api_workflow(file_storage) -> tuple[dict[str, Any], str]:
+    if file_storage is None or not getattr(file_storage, "filename", ""):
+        raise ValueError("请先上传一个 API workflow JSON 文件")
+
+    filename = file_storage.filename
+    raw_bytes = file_storage.read()
+    if not raw_bytes:
+        raise ValueError("上传的 workflow 文件为空")
+
+    try:
+        workflow = json.loads(raw_bytes.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise ValueError("workflow 文件必须是 UTF-8 编码的 JSON") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError("workflow 文件不是合法的 JSON") from exc
+
+    if not isinstance(workflow, dict):
+        raise ValueError("workflow 文件的顶层必须是 JSON 对象")
+
+    if is_editor_workflow(workflow):
+        raise ValueError("当前仅支持上传 ComfyUI 导出的 API workflow JSON，不支持 editor workflow")
+
+    if not workflow:
+        raise ValueError("workflow 文件不能为空对象")
+
+    if not all(isinstance(node_id, str) for node_id in workflow.keys()):
+        raise ValueError("API workflow 的节点 ID 必须是字符串")
+
+    for node_id, node_data in workflow.items():
+        if not isinstance(node_data, dict):
+            raise ValueError(f"节点 {node_id} 不是合法对象")
+        if "class_type" not in node_data or "inputs" not in node_data:
+            raise ValueError(f"节点 {node_id} 缺少 `class_type` 或 `inputs`，不是标准 API workflow")
+
+    ensure_prompt_graph_is_valid(workflow)
+    workflow_name = str(filename).strip().removesuffix(".json") or "uploaded-api-workflow"
+    return workflow, workflow_name
 
 
 def fetch_remote_json(url: str, method: str = "GET", payload: dict[str, Any] | None = None) -> Any:
@@ -423,10 +585,7 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
         upload_dir = str((app_config or {}).get("upload_dir", "images")).strip() or "images"
         return jsonify(
             {
-                "defaults": {
-                    "baseUrl": "http://127.0.0.1:8188",
-                    "workflowName": "",
-                },
+                "defaults": {"baseUrl": "http://127.0.0.1:8188"},
                 "uploadDir": upload_dir,
             }
         )
@@ -437,51 +596,22 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
             return jsonify({"items": []})
         return jsonify({"items": media_list_getter("image")})
 
-    @app.get("/api/remote-runner/workflows")
-    def remote_runner_workflows():
-        base_url = flask_request.args.get("baseUrl", "")
-        try:
-            workflows = list_workflows(base_url)
-            return jsonify({"items": workflows})
-        except Exception as exc:
-            logger.exception("加载 workflow 列表失败")
-            return jsonify({"error": str(exc)}), 400
-
     @app.post("/api/remote-runner/workflows/load")
     def remote_runner_load_workflow():
-        payload = flask_request.get_json(silent=True) or {}
-        base_url = payload.get("baseUrl", "")
-        workflow_name = payload.get("workflowName", "")
-
         try:
-            workflow = load_workflow(base_url, workflow_name)
-            prompt_workflow = workflow
-
-            if is_editor_workflow(workflow):
-                if workflow_contains_subgraphs(workflow):
-                    try:
-                        prompt_workflow = convert_workflow_via_remote(base_url, workflow)
-                    except Exception as exc:
-                        raise RuntimeError(
-                            "该 workflow 包含 subgraphs。当前远端如果没有安装 `/workflow/convert` 转换端点，"
-                            "就无法稳定转换成 API prompt。请在远端安装 workflow converter，"
-                            "或直接使用 ComfyUI 导出的 API workflow。"
-                        ) from exc
-                else:
-                    prompt_workflow = convert_editor_workflow_to_prompt(workflow)
-
-            node_titles = build_node_title_map(prompt_workflow, workflow if is_editor_workflow(workflow) else None)
+            workflow_file = flask_request.files.get("workflowFile")
+            prompt_workflow, workflow_name = parse_uploaded_api_workflow(workflow_file)
+            node_titles = build_node_title_map(prompt_workflow)
             placeholders = parse_placeholders(prompt_workflow, node_titles=node_titles)
             return jsonify(
                 {
                     "workflow": prompt_workflow,
-                    "rawWorkflow": workflow,
                     "placeholders": placeholders,
-                    "workflowName": workflow_name.strip().removesuffix(".json"),
+                    "workflowName": workflow_name,
                 }
             )
         except Exception as exc:
-            logger.exception("加载远端 workflow 失败")
+            logger.exception("加载上传的 workflow 失败")
             return jsonify({"error": str(exc)}), 400
 
     @app.post("/api/remote-runner/prompts/submit")
@@ -496,6 +626,7 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
 
         try:
             built_workflow = apply_params(template, form_state)
+            ensure_prompt_graph_is_valid(built_workflow)
             submit_result = submit_prompt(base_url, built_workflow)
             prompt_id = submit_result.get("prompt_id")
             if not prompt_id:

@@ -32,22 +32,14 @@
                     <h2>Config</h2>
                 </div>
                 <form id="config-form" class="stack">
-                    <div class="field-combo">
-                        <label class="field">
-                            <span>Base URL</span>
-                            <input id="base-url" name="baseUrl" type="url" placeholder="http://127.0.0.1:8188" required>
-                        </label>
-                        <button id="load-workflow-list-button" class="button button-ghost" type="button">Load List</button>
-                    </div>
                     <label class="field">
-                        <span>Workflow List</span>
-                        <select id="workflow-select" name="workflowSelect">
-                            <option value="">先加载 workflow 列表</option>
-                        </select>
+                        <span>Base URL</span>
+                        <input id="base-url" name="baseUrl" type="url" placeholder="http://127.0.0.1:8188" required>
                     </label>
                     <label class="field">
-                        <span>Workflow Selector</span>
-                        <input id="workflow-name" name="workflowName" type="text" placeholder="自动填充后的 urlencode 结果" required readonly>
+                        <span>API Workflow JSON</span>
+                        <input id="workflow-file" name="workflowFile" type="file" accept=".json,application/json" required>
+                        <small class="field-help">请上传从 ComfyUI 手动导出的 API workflow JSON，不再从远端拉取 workflow。</small>
                     </label>
                     <div class="config-actions">
                         <button id="load-workflow-button" class="button button-primary" type="button">Load Workflow</button>

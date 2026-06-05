@@ -21,15 +21,20 @@ export const apiClient = {
   async getMedia() {
     return requestJson("/api/remote-runner/media");
   },
-  async listWorkflows(baseUrl) {
-    const params = new URLSearchParams({ baseUrl });
-    return requestJson(`/api/remote-runner/workflows?${params.toString()}`);
-  },
-  async loadWorkflow(baseUrl, workflowName) {
-    return requestJson("/api/remote-runner/workflows/load", {
+  async loadWorkflow(workflowFile) {
+    const formData = new FormData();
+    formData.append("workflowFile", workflowFile);
+
+    const response = await fetch("/api/remote-runner/workflows/load", {
       method: "POST",
-      body: JSON.stringify({ baseUrl, workflowName }),
+      body: formData,
     });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `Request failed: ${response.status}`);
+    }
+    return payload;
   },
   async submitPrompt({ baseUrl, template, formState }) {
     return requestJson("/api/remote-runner/prompts/submit", {
