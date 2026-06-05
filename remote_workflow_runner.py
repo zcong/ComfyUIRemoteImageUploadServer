@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -17,6 +18,10 @@ from flask import jsonify, render_template, request as flask_request
 
 PLACEHOLDER_INPUT = "{input}"
 PLACEHOLDER_IMAGE = "{image}"
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -50,6 +55,25 @@ def deep_clone_json(value: Any) -> Any:
 
 def is_editor_workflow(workflow: Any) -> bool:
     return isinstance(workflow, dict) and isinstance(workflow.get("nodes"), list)
+
+
+def is_uuid_like(value: str) -> bool:
+    return bool(UUID_PATTERN.match(str(value).strip()))
+
+
+def workflow_contains_subgraphs(workflow: Any) -> bool:
+    if not isinstance(workflow, dict):
+        return False
+
+    definitions = workflow.get("definitions", {})
+    if isinstance(definitions, dict) and definitions.get("subgraphs"):
+        return True
+
+    for node in workflow.get("nodes", []):
+        if is_uuid_like(str(node.get("type") or "")):
+            return True
+
+    return False
 
 
 def is_non_executable_editor_node(node: dict[str, Any]) -> bool:
@@ -315,6 +339,14 @@ def submit_prompt(base_url: str, workflow_json: dict[str, Any]) -> dict[str, Any
     )
 
 
+def convert_workflow_via_remote(base_url: str, workflow: dict[str, Any]) -> dict[str, Any]:
+    return fetch_remote_json(
+        f"{normalize_base_url(base_url)}/workflow/convert",
+        method="POST",
+        payload=workflow,
+    )
+
+
 def list_workflows(base_url: str) -> list[dict[str, Any]]:
     return fetch_remote_json(
         f"{normalize_base_url(base_url)}/api/userdata?dir=workflows&recurse=true&split=false&full_info=true"
@@ -423,7 +455,21 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
 
         try:
             workflow = load_workflow(base_url, workflow_name)
-            prompt_workflow = convert_editor_workflow_to_prompt(workflow) if is_editor_workflow(workflow) else workflow
+            prompt_workflow = workflow
+
+            if is_editor_workflow(workflow):
+                if workflow_contains_subgraphs(workflow):
+                    try:
+                        prompt_workflow = convert_workflow_via_remote(base_url, workflow)
+                    except Exception as exc:
+                        raise RuntimeError(
+                            "该 workflow 包含 subgraphs。当前远端如果没有安装 `/workflow/convert` 转换端点，"
+                            "就无法稳定转换成 API prompt。请在远端安装 workflow converter，"
+                            "或直接使用 ComfyUI 导出的 API workflow。"
+                        ) from exc
+                else:
+                    prompt_workflow = convert_editor_workflow_to_prompt(workflow)
+
             node_titles = build_node_title_map(prompt_workflow, workflow if is_editor_workflow(workflow) else None)
             placeholders = parse_placeholders(prompt_workflow, node_titles=node_titles)
             return jsonify(
