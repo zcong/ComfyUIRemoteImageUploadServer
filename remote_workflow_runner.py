@@ -60,14 +60,25 @@ def is_non_executable_editor_node(node: dict[str, Any]) -> bool:
 
     known_annotation_types = {
         "label (rgthree)",
+        "bookmark (rgthree)",
+        "markdownnote",
+        "markdown note",
         "note",
         "sticky note",
+        "annotation",
     }
     if class_type in known_annotation_types:
         return True
 
-    # rgthree label nodes are annotation-only and do not participate in execution.
-    if "label" in searchable and "rgthree" in searchable:
+    # rgthree UI helper nodes like labels/bookmarks are annotation-only
+    # and do not participate in execution.
+    if "rgthree" in searchable and any(keyword in searchable for keyword in {"label", "bookmark"}):
+        return True
+
+    if any(keyword in searchable for keyword in {"markdownnote", "markdown note", "sticky note"}):
+        return True
+
+    if "annotation" in searchable:
         return True
 
     return False
