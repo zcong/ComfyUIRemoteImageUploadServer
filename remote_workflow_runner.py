@@ -52,6 +52,27 @@ def is_editor_workflow(workflow: Any) -> bool:
     return isinstance(workflow, dict) and isinstance(workflow.get("nodes"), list)
 
 
+def is_non_executable_editor_node(node: dict[str, Any]) -> bool:
+    class_type = str(node.get("type") or "").strip().lower()
+    node_title = str(node.get("title") or "").strip().lower()
+    node_name = str(node.get("properties", {}).get("Node name for S&R") or "").strip().lower()
+    searchable = " ".join(part for part in [class_type, node_title, node_name] if part)
+
+    known_annotation_types = {
+        "label (rgthree)",
+        "note",
+        "sticky note",
+    }
+    if class_type in known_annotation_types:
+        return True
+
+    # rgthree label nodes are annotation-only and do not participate in execution.
+    if "label" in searchable and "rgthree" in searchable:
+        return True
+
+    return False
+
+
 def convert_editor_workflow_to_prompt(workflow: dict[str, Any]) -> dict[str, Any]:
     link_map: dict[int, list[Any]] = {}
     for link in workflow.get("links", []):
@@ -63,6 +84,9 @@ def convert_editor_workflow_to_prompt(workflow: dict[str, Any]) -> dict[str, Any
 
     prompt: dict[str, Any] = {}
     for node in workflow.get("nodes", []):
+        if is_non_executable_editor_node(node):
+            continue
+
         node_id = str(node.get("id"))
         prompt_node = {
             "class_type": node.get("type"),
