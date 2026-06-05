@@ -245,7 +245,8 @@ def build_node_title_map(workflow: Any, raw_workflow: dict[str, Any] | None = No
         for node in raw_workflow.get("nodes", []):
             node_id = str(node.get("id"))
             title = (
-                node.get("title")
+                node.get("_meta", {}).get("title")
+                or node.get("title")
                 or node.get("properties", {}).get("Node name for S&R")
                 or node.get("type")
                 or node_id
@@ -257,7 +258,12 @@ def build_node_title_map(workflow: Any, raw_workflow: dict[str, Any] | None = No
             if node_id in title_map:
                 continue
             if isinstance(node_value, dict):
-                title = node_value.get("title") or node_value.get("class_type") or node_id
+                title = (
+                    node_value.get("_meta", {}).get("title")
+                    or node_value.get("title")
+                    or node_value.get("class_type")
+                    or node_id
+                )
                 title_map[str(node_id)] = str(title)
 
     return title_map
@@ -573,15 +579,38 @@ def infer_job_status(history_payload: dict[str, Any], prompt_id: str, submitted_
     return "running", "远端 ComfyUI 正在执行 workflow。"
 
 
-def create_remote_runner_routes(app, logger, media_list_getter=None, app_config: dict[str, Any] | None = None):
+def create_remote_runner_routes(
+    app,
+    logger,
+    media_list_getter=None,
+    app_config: dict[str, Any] | None = None,
+    page_access_guard=None,
+    api_access_guard=None,
+):
     job_store: dict[str, dict[str, Any]] = {}
 
-    @app.get("/remote-runner")
+    def ensure_page_access():
+        if callable(page_access_guard):
+            return page_access_guard()
+        return None
+
+    def ensure_api_access():
+        if callable(api_access_guard):
+            return api_access_guard()
+        return None
+
+    @app.route("/remote-runner", methods=["GET", "POST"])
     def remote_runner_index():
+        access_response = ensure_page_access()
+        if access_response is not None:
+            return access_response
         return render_template("remote_runner.html")
 
     @app.get("/api/remote-runner/config")
     def remote_runner_config():
+        access_response = ensure_api_access()
+        if access_response is not None:
+            return access_response
         upload_dir = str((app_config or {}).get("upload_dir", "images")).strip() or "images"
         return jsonify(
             {
@@ -592,12 +621,18 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
 
     @app.get("/api/remote-runner/media")
     def remote_runner_media():
+        access_response = ensure_api_access()
+        if access_response is not None:
+            return access_response
         if media_list_getter is None:
             return jsonify({"items": []})
         return jsonify({"items": media_list_getter("image")})
 
     @app.post("/api/remote-runner/workflows/load")
     def remote_runner_load_workflow():
+        access_response = ensure_api_access()
+        if access_response is not None:
+            return access_response
         try:
             workflow_file = flask_request.files.get("workflowFile")
             prompt_workflow, workflow_name = parse_uploaded_api_workflow(workflow_file)
@@ -616,6 +651,9 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
 
     @app.post("/api/remote-runner/prompts/submit")
     def remote_runner_submit_prompt():
+        access_response = ensure_api_access()
+        if access_response is not None:
+            return access_response
         payload = flask_request.get_json(silent=True) or {}
         base_url = payload.get("baseUrl", "")
         template = payload.get("template")
@@ -651,6 +689,9 @@ def create_remote_runner_routes(app, logger, media_list_getter=None, app_config:
 
     @app.get("/api/remote-runner/prompts/<prompt_id>/history")
     def remote_runner_prompt_history(prompt_id: str):
+        access_response = ensure_api_access()
+        if access_response is not None:
+            return access_response
         base_url = flask_request.args.get("baseUrl", "")
         job_meta = job_store.get(prompt_id, {})
         effective_base_url = base_url or job_meta.get("baseUrl", "")

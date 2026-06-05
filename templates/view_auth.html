@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片预览 - 身份验证</title>
+    <title>{{ page_title or "页面访问 - 身份验证" }}</title>
     <style>
         * {
             margin: 0;
@@ -128,8 +128,8 @@
 <body>
     <div class="auth-container">
         <div class="auth-header">
-            <h1>🔐 身份验证</h1>
-            <p>请输入API密钥以访问图片预览</p>
+            <h1>🔐 {{ page_heading or "身份验证" }}</h1>
+            <p>{{ description or "请输入API密钥以继续访问页面" }}</p>
         </div>
 
         {% if error %}
@@ -138,7 +138,7 @@
         </div>
         {% endif %}
 
-        <form class="auth-form" method="GET" action="/view">
+        <form class="auth-form" method="POST" action="{{ action_url or request.path }}">
             <div class="form-group">
                 <label for="key">API密钥</label>
                 <input type="password" id="key" name="key" placeholder="请输入API密钥" required autofocus>

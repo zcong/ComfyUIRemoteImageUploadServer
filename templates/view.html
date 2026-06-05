@@ -10,388 +10,461 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-        
-        .stats {
-            padding: 20px 30px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .stats-info {
-            font-size: 1.1em;
-            color: #495057;
-        }
-        
-        .stats-info strong {
-            color: #667eea;
-        }
-        
-        .gallery {
-            padding: 30px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        
-        .image-item {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .image-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
-        }
-        
-        .image-thumbnail {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            display: block;
-        }
-        
-        .video-thumbnail {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            display: block;
-        }
-        
-        .media-type-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(102, 126, 234, 0.9);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75em;
-            font-weight: 600;
+
+        :root {
+            --brand-1: #1f6feb;
+            --brand-2: #0f766e;
+            --surface: #ffffff;
+            --surface-soft: #f4f7fb;
+            --line: #d8e0ea;
+            --text: #16202a;
+            --muted: #62707d;
+            --danger: #d92d20;
+            --danger-strong: #b42318;
+            --shadow: 0 18px 60px rgba(10, 30, 60, 0.18);
         }
 
-        .delete-btn {
-            position: absolute;
-            top: 10px;
-            left: 10px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(31, 111, 235, 0.22), transparent 28%),
+                radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 25%),
+                linear-gradient(180deg, #eef5ff 0%, #f7fbff 50%, #eef4f8 100%);
+            min-height: 100vh;
+            padding: 24px;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 36px 36px 28px;
+            background: linear-gradient(135deg, #1f6feb 0%, #0f766e 100%);
+            color: #fff;
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.92;
+            max-width: 760px;
+            line-height: 1.6;
+        }
+
+        .stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 22px 28px;
+            background: var(--surface-soft);
+            border-bottom: 1px solid var(--line);
+        }
+
+        .stat-card {
+            min-width: 180px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: var(--surface);
+            border: 1px solid rgba(31, 111, 235, 0.08);
+            box-shadow: 0 10px 28px rgba(27, 60, 90, 0.08);
+        }
+
+        .stat-card span {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .stat-card strong {
+            font-size: 1.3rem;
+        }
+
+        .toolbar {
+            padding: 28px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.82);
+        }
+
+        .tab-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--muted);
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+        }
+
+        .tab-button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(31, 111, 235, 0.4);
+            color: var(--brand-1);
+        }
+
+        .tab-button.active {
+            color: #fff;
+            border-color: transparent;
+            background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 100%);
+            box-shadow: 0 12px 24px rgba(31, 111, 235, 0.25);
+        }
+
+        .upload-section {
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 251, 0.96));
+            padding: 22px;
+        }
+
+        .upload-copy {
+            margin-bottom: 16px;
+        }
+
+        .upload-copy strong {
+            display: block;
+            font-size: 1.02rem;
+            margin-bottom: 6px;
+        }
+
+        .upload-copy span {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(31, 111, 235, 0.36);
+            border-radius: 18px;
+            padding: 28px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(31, 111, 235, 0.06), rgba(15, 118, 110, 0.05));
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            transform: translateY(-2px);
+            border-color: rgba(15, 118, 110, 0.6);
+            background: linear-gradient(135deg, rgba(31, 111, 235, 0.09), rgba(15, 118, 110, 0.1));
+        }
+
+        .upload-icon {
+            font-size: 2.8rem;
+            margin-bottom: 14px;
+        }
+
+        .upload-text {
+            font-size: 1.08rem;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .upload-hint {
+            font-size: 0.92rem;
+            color: var(--muted);
+        }
+
+        .upload-btn {
+            margin-top: 16px;
+            padding: 12px 26px;
             border: none;
             border-radius: 999px;
-            background: rgba(220, 53, 69, 0.92);
-            color: white;
-            padding: 6px 10px;
-            font-size: 0.8em;
-            font-weight: 600;
+            background: linear-gradient(135deg, var(--brand-1) 0%, var(--brand-2) 100%);
+            color: #fff;
+            font-size: 0.96rem;
+            font-weight: 700;
             cursor: pointer;
-            transition: background 0.2s ease, transform 0.2s ease;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(31, 111, 235, 0.24);
+        }
+
+        .upload-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-progress,
+        .upload-message {
+            display: none;
+        }
+
+        .upload-progress.active,
+        .upload-message.active {
+            display: block;
+        }
+
+        .upload-progress {
+            margin-top: 16px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #dce5ef;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--brand-1) 0%, var(--brand-2) 100%);
+            transition: width 0.2s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .upload-message {
+            margin-top: 16px;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 0.92rem;
+        }
+
+        .upload-message.success {
+            background: #ecfdf3;
+            color: #027a48;
+            border: 1px solid #abefc6;
+        }
+
+        .upload-message.error {
+            background: #fef3f2;
+            color: #b42318;
+            border: 1px solid #fecdca;
+        }
+
+        .content {
+            padding: 28px;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+            animation: fadeSlideIn 0.22s ease;
+        }
+
+        @keyframes fadeSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 18px;
+        }
+
+        .media-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+            border: 1px solid rgba(23, 37, 84, 0.08);
+            background: #fff;
+            box-shadow: 0 14px 34px rgba(17, 24, 39, 0.08);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .media-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 36px rgba(17, 24, 39, 0.14);
+        }
+
+        .media-thumb {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+            background: #e8eef4;
+        }
+
+        .media-type-badge,
+        .delete-btn {
+            position: absolute;
+            top: 12px;
             z-index: 2;
         }
 
+        .media-type-badge {
+            right: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(9, 30, 66, 0.76);
+            color: #fff;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .delete-btn {
+            left: 12px;
+            border: none;
+            border-radius: 999px;
+            background: rgba(217, 45, 32, 0.94);
+            color: #fff;
+            padding: 7px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.18s ease, transform 0.18s ease;
+        }
+
         .delete-btn:hover {
-            background: rgba(200, 35, 51, 0.98);
+            background: rgba(180, 35, 24, 0.98);
             transform: translateY(-1px);
         }
-        
-        .image-item {
-            position: relative;
+
+        .media-info {
+            padding: 16px;
         }
-        
-        .image-info {
-            padding: 15px;
-        }
-        
-        .image-filename {
-            font-weight: 600;
-            color: #212529;
-            margin-bottom: 8px;
+
+        .media-filename {
+            font-size: 0.94rem;
+            font-weight: 700;
+            margin-bottom: 10px;
             word-break: break-all;
-            font-size: 0.9em;
         }
-        
-        .image-meta {
-            font-size: 0.85em;
-            color: #6c757d;
+
+        .media-meta {
+            color: var(--muted);
+            font-size: 0.84rem;
             display: flex;
             justify-content: space-between;
+            gap: 10px;
             flex-wrap: wrap;
         }
-        
+
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: #6c757d;
+            padding: 68px 24px;
+            border: 1px dashed var(--line);
+            border-radius: 22px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 251, 0.92));
+            color: var(--muted);
         }
-        
-        .empty-state svg {
-            width: 100px;
-            height: 100px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
+
         .empty-state h2 {
-            font-size: 1.5em;
-            margin-bottom: 10px;
+            font-size: 1.4rem;
+            margin: 10px 0 8px;
+            color: var(--text);
         }
-        
-        /* 模态框样式 */
+
         .modal {
             display: none;
             position: fixed;
+            inset: 0;
             z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            animation: fadeIn 0.3s;
+            background: rgba(5, 16, 33, 0.86);
         }
-        
+
         .modal.active {
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .modal-content {
-            max-width: 90%;
-            max-height: 90%;
-            margin: auto;
-            display: block;
-            animation: zoomIn 0.3s;
-        }
-        
-        .modal-content video {
-            max-width: 100%;
-            max-height: 90vh;
-            width: auto;
-            height: auto;
-        }
-        
-        @keyframes zoomIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        
+
         .modal-close {
             position: absolute;
-            top: 20px;
-            right: 35px;
-            color: #f1f1f1;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-        
-        .modal-close:hover {
+            top: 18px;
+            right: 28px;
             color: #fff;
+            font-size: 42px;
+            cursor: pointer;
         }
-        
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 86vh;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-content video,
+        #modalImage {
+            max-width: 100%;
+            max-height: 86vh;
+            display: block;
+        }
+
         .modal-info {
             position: absolute;
-            bottom: 20px;
+            bottom: 24px;
             left: 50%;
             transform: translateX(-50%);
-            color: white;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 5px;
+            color: #fff;
+            background: rgba(10, 20, 34, 0.7);
+            padding: 10px 16px;
+            border-radius: 12px;
             text-align: center;
         }
-        
-        /* 上传区域样式 */
-        .upload-section {
-            padding: 20px 30px;
-            background: #ffffff;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .upload-area {
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            padding: 30px;
-            text-align: center;
-            background: #f8f9ff;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .upload-area:hover {
-            border-color: #764ba2;
-            background: #f0f2ff;
-        }
-        
-        .upload-area.dragover {
-            border-color: #764ba2;
-            background: #e8ebff;
-            transform: scale(1.02);
-        }
-        
-        .upload-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            color: #667eea;
-        }
-        
-        .upload-text {
-            font-size: 1.1em;
-            color: #495057;
-            margin-bottom: 10px;
-        }
-        
-        .upload-hint {
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-        
-        .upload-btn {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 12px 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .upload-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .upload-btn:active {
-            transform: translateY(0);
-        }
-        
-        .upload-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        #fileInput {
-            display: none;
-        }
-        
-        .upload-progress {
-            margin-top: 15px;
-            display: none;
-        }
-        
-        .upload-progress.active {
-            display: block;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-text {
-            font-size: 0.9em;
-            color: #6c757d;
-            text-align: center;
-        }
-        
-        .upload-message {
-            margin-top: 15px;
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            display: none;
-        }
-        
-        .upload-message.active {
-            display: block;
-        }
-        
-        .upload-message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .upload-message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
+
         @media (max-width: 768px) {
-            .gallery {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 15px;
+            body {
+                padding: 14px;
+            }
+
+            .header,
+            .toolbar,
+            .content {
                 padding: 20px;
             }
-            
-            .header h1 {
-                font-size: 2em;
-            }
-            
+
             .stats {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
+                padding: 18px 20px;
+            }
+
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 14px;
+            }
+
+            .media-thumb {
+                height: 170px;
             }
         }
     </style>
@@ -399,366 +472,395 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🖼️ 媒体预览</h1>
-            <p>ComfyUI Remote Image Upload Server</p>
+            <h1>媒体预览中心</h1>
+            <p>在同一页面里管理图片与视频，按 tab 切换浏览、上传和删除，适合快速检查 ComfyUI 远端产物。</p>
         </div>
-        
+
         <div class="stats">
-            <div class="stats-info">
-                共 <strong>{{ image_count }}</strong> 张图片
-                {% if video_count > 0 %}
-                ，<strong>{{ video_count }}</strong> 个视频
+            <div class="stat-card">
+                <span>图片数量</span>
+                <strong>{{ image_count }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>视频数量</span>
+                <strong>{{ video_count }}</strong>
+            </div>
+            <div class="stat-card">
+                <span>总存储占用</span>
+                <strong>{{ total_size }}</strong>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="tab-row" role="tablist" aria-label="媒体分类">
+                <button class="tab-button{% if default_tab == 'image' %} active{% endif %}" type="button" data-tab="image" aria-selected="{{ 'true' if default_tab == 'image' else 'false' }}">图片 ({{ image_count }})</button>
+                <button class="tab-button{% if default_tab == 'video' %} active{% endif %}" type="button" data-tab="video" aria-selected="{{ 'true' if default_tab == 'video' else 'false' }}">视频 ({{ video_count }})</button>
+            </div>
+
+            <div class="upload-section">
+                <div class="upload-copy">
+                    <strong id="uploadTitle">上传{{ "图片" if default_tab == "image" else "视频" }}</strong>
+                    <span id="uploadHintText">{{ "支持 PNG、JPG、JPEG、GIF、WEBP、BMP 格式。" if default_tab == "image" else "支持 MP4、MOV、MKV、WEBM、AVI 格式。" }}</span>
+                </div>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon" id="uploadIcon">{{ "🖼️" if default_tab == "image" else "🎬" }}</div>
+                    <div class="upload-text" id="uploadText">{{ "点击或拖拽图片到这里上传" if default_tab == "image" else "点击或拖拽视频到这里上传" }}</div>
+                    <div class="upload-hint" id="uploadHint">{{ "支持 PNG, JPG, JPEG, GIF, WEBP, BMP" if default_tab == "image" else "支持 MP4, MOV, MKV, WEBM, AVI" }}</div>
+                    <button class="upload-btn" id="uploadBtn" type="button">选择文件</button>
+                    <input type="file" id="fileInput" multiple>
+                </div>
+                <div class="upload-progress" id="uploadProgress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">上传中...</div>
+                </div>
+                <div class="upload-message" id="uploadMessage"></div>
+            </div>
+        </div>
+
+        <div class="content">
+            <section class="tab-panel{% if default_tab == 'image' %} active{% endif %}" id="panel-image" data-panel="image">
+                {% if image_list %}
+                <div class="gallery">
+                    {% for image in image_list %}
+                    <article class="media-item" onclick="openModal('{{ image.url }}', '{{ image.filename }}', '{{ image.size }}', '{{ image.modified_time }}', 'image')">
+                        <button class="delete-btn" onclick="deleteMedia(event, 'image', '{{ image.filename }}')">删除</button>
+                        <span class="media-type-badge">图片</span>
+                        <img src="{{ image.url }}" alt="{{ image.filename }}" class="media-thumb" loading="lazy">
+                        <div class="media-info">
+                            <div class="media-filename">{{ image.filename }}</div>
+                            <div class="media-meta">
+                                <span>{{ image.size_formatted }}</span>
+                                <span>{{ image.modified_time }}</span>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div>🖼️</div>
+                    <h2>暂无图片</h2>
+                    <p>切换到图片 tab 后，可以直接拖拽或选择文件上传。</p>
+                </div>
                 {% endif %}
-            </div>
-            <div class="stats-info">
-                总大小: <strong>{{ total_size }}</strong>
-            </div>
-        </div>
-        
-        <div class="upload-section">
-            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">📤</div>
-                <div class="upload-text">点击或拖拽图片到此处上传</div>
-                <div class="upload-hint">支持 PNG, JPG, JPEG, GIF, WEBP, BMP 格式</div>
-                <button class="upload-btn" id="uploadBtn">选择文件</button>
-                <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/bmp" multiple>
-            </div>
-            <div class="upload-progress" id="uploadProgress">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+            </section>
+
+            <section class="tab-panel{% if default_tab == 'video' %} active{% endif %}" id="panel-video" data-panel="video">
+                {% if video_list %}
+                <div class="gallery">
+                    {% for video in video_list %}
+                    <article class="media-item" onclick="openModal('{{ video.url }}', '{{ video.filename }}', '{{ video.size }}', '{{ video.modified_time }}', 'video')">
+                        <button class="delete-btn" onclick="deleteMedia(event, 'video', '{{ video.filename }}')">删除</button>
+                        <span class="media-type-badge">视频</span>
+                        <video class="media-thumb" preload="metadata" muted>
+                            <source src="{{ video.url }}" type="video/mp4">
+                        </video>
+                        <div class="media-info">
+                            <div class="media-filename">{{ video.filename }}</div>
+                            <div class="media-meta">
+                                <span>{{ video.size_formatted }}</span>
+                                <span>{{ video.modified_time }}</span>
+                            </div>
+                        </div>
+                    </article>
+                    {% endfor %}
                 </div>
-                <div class="progress-text" id="progressText">上传中...</div>
-            </div>
-            <div class="upload-message" id="uploadMessage"></div>
-        </div>
-        
-        {% if image_list or video_list %}
-        <div class="gallery">
-            {% for image in image_list %}
-            <div class="image-item" onclick="openModal('{{ image.url }}', '{{ image.filename }}', '{{ image.size }}', '{{ image.modified_time }}', 'image')">
-                <button class="delete-btn" onclick="deleteMedia(event, 'image', '{{ image.filename }}')">删除</button>
-                <span class="media-type-badge">图片</span>
-                <img src="{{ image.url }}" alt="{{ image.filename }}" class="image-thumbnail" loading="lazy">
-                <div class="image-info">
-                    <div class="image-filename">{{ image.filename }}</div>
-                    <div class="image-meta">
-                        <span>{{ image.size_formatted }}</span>
-                        <span>{{ image.modified_time }}</span>
-                    </div>
+                {% else %}
+                <div class="empty-state">
+                    <div>🎬</div>
+                    <h2>暂无视频</h2>
+                    <p>切换到视频 tab 后，可以上传远端生成的视频文件。</p>
                 </div>
-            </div>
-            {% endfor %}
-            {% for video in video_list %}
-            <div class="image-item" onclick="openModal('{{ video.url }}', '{{ video.filename }}', '{{ video.size }}', '{{ video.modified_time }}', 'video')">
-                <button class="delete-btn" onclick="deleteMedia(event, 'video', '{{ video.filename }}')">删除</button>
-                <span class="media-type-badge">视频</span>
-                <video class="video-thumbnail" preload="metadata" muted>
-                    <source src="{{ video.url }}" type="video/mp4">
-                </video>
-                <div class="image-info">
-                    <div class="image-filename">{{ video.filename }}</div>
-                    <div class="image-meta">
-                        <span>{{ video.size_formatted }}</span>
-                        <span>{{ video.modified_time }}</span>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
+                {% endif %}
+            </section>
         </div>
-        {% else %}
-        <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-            <h2>暂无媒体文件</h2>
-            <p>上传目录中还没有图片或视频文件</p>
-        </div>
-        {% endif %}
     </div>
-    
-    <!-- 模态框 -->
+
     <div id="imageModal" class="modal" onclick="closeModal()">
         <span class="modal-close">&times;</span>
-        <img class="modal-content" id="modalImage" style="display: none;">
+        <img class="modal-content" id="modalImage" style="display: none;" alt="预览图片">
         <video class="modal-content" id="modalVideo" controls style="display: none;"></video>
         <div class="modal-info" id="modalInfo"></div>
     </div>
-    
+
     <script>
+        const mediaConfig = {
+            image: {
+                label: "图片",
+                icon: "🖼️",
+                buttonText: "点击或拖拽图片到这里上传",
+                hint: "支持 PNG, JPG, JPEG, GIF, WEBP, BMP",
+                description: "支持 PNG、JPG、JPEG、GIF、WEBP、BMP 格式。",
+                accept: "image/png,image/jpeg,image/jpg,image/gif,image/webp,image/bmp",
+                endpoint: "/upload",
+                allowedMimeTypes: ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/bmp"],
+                dragFilter: (file) => file.type.startsWith("image/")
+            },
+            video: {
+                label: "视频",
+                icon: "🎬",
+                buttonText: "点击或拖拽视频到这里上传",
+                hint: "支持 MP4, MOV, MKV, WEBM, AVI",
+                description: "支持 MP4、MOV、MKV、WEBM、AVI 格式。",
+                accept: ".mp4,.mov,.mkv,.webm,.avi,video/mp4,video/quicktime,video/x-matroska,video/webm,video/x-msvideo",
+                endpoint: "/upload_video",
+                allowedMimeTypes: ["video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/x-msvideo"],
+                allowedExtensions: [".mp4", ".mov", ".mkv", ".webm", ".avi"],
+                dragFilter: (file) => file.type.startsWith("video/") || [".mp4", ".mov", ".mkv", ".webm", ".avi"].some((ext) => file.name.toLowerCase().endsWith(ext))
+            }
+        };
+
+        let activeTab = "{{ default_tab }}";
+
+        const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
+        const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+        const uploadArea = document.getElementById("uploadArea");
+        const fileInput = document.getElementById("fileInput");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const uploadTitle = document.getElementById("uploadTitle");
+        const uploadText = document.getElementById("uploadText");
+        const uploadHint = document.getElementById("uploadHint");
+        const uploadHintText = document.getElementById("uploadHintText");
+        const uploadIcon = document.getElementById("uploadIcon");
+        const uploadProgress = document.getElementById("uploadProgress");
+        const progressFill = document.getElementById("progressFill");
+        const progressText = document.getElementById("progressText");
+        const uploadMessage = document.getElementById("uploadMessage");
+
         function formatFileSize(bytes) {
-            if (bytes === 0) return '0 B';
+            if (bytes === 0) return "0 B";
             const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const sizes = ["B", "KB", "MB", "GB"];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
         }
-        
-        function openModal(url, filename, size, modifiedTime, mediaType) {
-            const modal = document.getElementById('imageModal');
-            const modalImg = document.getElementById('modalImage');
-            const modalVideo = document.getElementById('modalVideo');
-            const modalInfo = document.getElementById('modalInfo');
-            
-            // 根据媒体类型显示相应的元素
-            if (mediaType === 'video') {
-                modalImg.style.display = 'none';
-                modalVideo.style.display = 'block';
-                modalVideo.src = url;
-                modalVideo.load(); // 重新加载视频
-            } else {
-                modalVideo.style.display = 'none';
-                modalImg.style.display = 'block';
-                modalImg.src = url;
-            }
-            
-            modalInfo.innerHTML = `<strong>${filename}</strong><br>${formatFileSize(size)} | ${modifiedTime}`;
-            modal.classList.add('active');
-            
-            // 阻止点击媒体内容时关闭模态框
-            modalImg.onclick = function(e) {
-                e.stopPropagation();
-            };
-            modalVideo.onclick = function(e) {
-                e.stopPropagation();
-            };
-        }
-        
-        function closeModal() {
-            const modal = document.getElementById('imageModal');
-            const modalVideo = document.getElementById('modalVideo');
-            modal.classList.remove('active');
-            // 暂停视频播放
-            if (modalVideo) {
-                modalVideo.pause();
-                modalVideo.currentTime = 0;
-            }
-        }
-        
-        
-        // 按ESC键关闭模态框
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeModal();
-            }
-        });
-        
-        // ========== 图片上传功能 ==========
-        
-        // 从URL参数获取API密钥
-        function getApiKey() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('key') || '';
-        }
-        
-        // 获取上传区域和文件输入元素
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const uploadProgress = document.getElementById('uploadProgress');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        const uploadMessage = document.getElementById('uploadMessage');
-        
-        // 显示消息
+
         function showMessage(text, isError = false) {
             uploadMessage.textContent = text;
-            uploadMessage.className = 'upload-message active ' + (isError ? 'error' : 'success');
+            uploadMessage.className = "upload-message active " + (isError ? "error" : "success");
             setTimeout(() => {
-                uploadMessage.classList.remove('active');
-            }, isError ? 5000 : 3000);
+                uploadMessage.classList.remove("active");
+            }, isError ? 5000 : 2600);
         }
-        
-        // 重置上传状态
+
         function resetUploadState() {
-            uploadProgress.classList.remove('active');
-            progressFill.style.width = '0%';
-            progressText.textContent = '上传中...';
+            uploadProgress.classList.remove("active");
+            progressFill.style.width = "0%";
+            progressText.textContent = "上传中...";
             uploadBtn.disabled = false;
-            uploadArea.classList.remove('dragover');
+            uploadArea.classList.remove("dragover");
+        }
+
+        function applyTabState(tabName) {
+            activeTab = tabName;
+            const current = mediaConfig[tabName];
+
+            tabButtons.forEach((button) => {
+                const selected = button.dataset.tab === tabName;
+                button.classList.toggle("active", selected);
+                button.setAttribute("aria-selected", selected ? "true" : "false");
+            });
+
+            tabPanels.forEach((panel) => {
+                panel.classList.toggle("active", panel.dataset.panel === tabName);
+            });
+
+            uploadTitle.textContent = `上传${current.label}`;
+            uploadText.textContent = current.buttonText;
+            uploadHint.textContent = current.hint;
+            uploadHintText.textContent = current.description;
+            uploadIcon.textContent = current.icon;
+            fileInput.accept = current.accept;
+        }
+
+        function isAllowedFile(file, config) {
+            if (config.allowedMimeTypes.includes(file.type)) {
+                return true;
+            }
+            return (config.allowedExtensions || []).some((ext) => file.name.toLowerCase().endsWith(ext));
+        }
+
+        async function uploadFile(file) {
+            const current = mediaConfig[activeTab];
+            if (!isAllowedFile(file, current)) {
+                showMessage(`错误：不支持的${current.label}类型 ${file.name}`, true);
+                return false;
+            }
+
+            uploadProgress.classList.add("active");
+            uploadBtn.disabled = true;
+            progressFill.style.width = "0%";
+            progressText.textContent = `正在上传 ${file.name}...`;
+
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener("progress", (event) => {
+                    if (event.lengthComputable) {
+                        const percentComplete = (event.loaded / event.total) * 100;
+                        progressFill.style.width = percentComplete + "%";
+                        progressText.textContent = `上传中... ${Math.round(percentComplete)}%`;
+                    }
+                });
+
+                xhr.addEventListener("load", () => {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText || "{}");
+                        progressFill.style.width = "100%";
+                        progressText.textContent = "上传成功";
+                        showMessage(`上传成功：${response.filename || file.name}`, false);
+                        setTimeout(() => window.location.reload(), 700);
+                        return;
+                    }
+
+                    let errorMessage = "上传失败";
+                    try {
+                        const payload = JSON.parse(xhr.responseText || "{}");
+                        errorMessage = payload.error || errorMessage;
+                    } catch (error) {
+                        errorMessage = `上传失败，状态码：${xhr.status}`;
+                    }
+                    showMessage(errorMessage, true);
+                    resetUploadState();
+                });
+
+                xhr.addEventListener("error", () => {
+                    showMessage("网络错误：无法连接到服务器", true);
+                    resetUploadState();
+                });
+
+                xhr.open("POST", current.endpoint);
+                xhr.send(formData);
+            } catch (error) {
+                showMessage(`上传失败：${error.message}`, true);
+                resetUploadState();
+                return false;
+            }
+
+            return true;
         }
 
         async function deleteMedia(event, mediaType, filename) {
             event.stopPropagation();
-
-            const apiKey = getApiKey();
-            if (!apiKey) {
-                showMessage('错误：未找到API密钥，请通过URL参数传递key', true);
+            const mediaLabel = mediaType === "video" ? "视频" : "图片";
+            if (!window.confirm(`确认删除${mediaLabel} ${filename} 吗？此操作不可恢复。`)) {
                 return;
             }
 
-            const mediaLabel = mediaType === 'video' ? '视频' : '图片';
-            const confirmed = window.confirm(`确认删除${mediaLabel} ${filename} 吗？此操作不可恢复。`);
-            if (!confirmed) {
-                return;
-            }
-
-            const endpoint = mediaType === 'video' ? `/videos/${encodeURIComponent(filename)}` : `/images/${encodeURIComponent(filename)}`;
+            const endpoint = mediaType === "video"
+                ? `/videos/${encodeURIComponent(filename)}`
+                : `/images/${encodeURIComponent(filename)}`;
 
             try {
-                const response = await fetch(endpoint, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-API-KEY': apiKey
-                    }
-                });
-
+                const response = await fetch(endpoint, { method: "DELETE" });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) {
                     throw new Error(payload.error || `删除失败，状态码：${response.status}`);
                 }
 
                 showMessage(`${mediaLabel}已删除：${filename}`, false);
-                setTimeout(() => {
-                    window.location.reload();
-                }, 400);
+                setTimeout(() => window.location.reload(), 350);
             } catch (error) {
                 showMessage(error.message || `删除${mediaLabel}失败`, true);
             }
         }
-        
-        // 上传文件
-        async function uploadFile(file) {
-            const apiKey = getApiKey();
-            if (!apiKey) {
-                showMessage('错误：未找到API密钥，请通过URL参数传递key', true);
-                return false;
+
+        function openModal(url, filename, size, modifiedTime, mediaType) {
+            const modal = document.getElementById("imageModal");
+            const modalImage = document.getElementById("modalImage");
+            const modalVideo = document.getElementById("modalVideo");
+            const modalInfo = document.getElementById("modalInfo");
+
+            if (mediaType === "video") {
+                modalImage.style.display = "none";
+                modalVideo.style.display = "block";
+                modalVideo.src = url;
+                modalVideo.load();
+            } else {
+                modalVideo.style.display = "none";
+                modalImage.style.display = "block";
+                modalImage.src = url;
             }
-            
-            // 检查文件类型
-            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp'];
-            if (!allowedTypes.includes(file.type)) {
-                showMessage(`错误：不支持的文件类型 ${file.type}`, true);
-                return false;
-            }
-            
-            // 显示进度条
-            uploadProgress.classList.add('active');
-            uploadBtn.disabled = true;
-            progressFill.style.width = '0%';
-            progressText.textContent = `正在上传 ${file.name}...`;
-            
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                const xhr = new XMLHttpRequest();
-                
-                // 监听上传进度
-                xhr.upload.addEventListener('progress', function(e) {
-                    if (e.lengthComputable) {
-                        const percentComplete = (e.loaded / e.total) * 100;
-                        progressFill.style.width = percentComplete + '%';
-                        progressText.textContent = `上传中... ${Math.round(percentComplete)}%`;
-                    }
-                });
-                
-                // 处理响应
-                xhr.addEventListener('load', function() {
-                    if (xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            progressFill.style.width = '100%';
-                            progressText.textContent = '上传成功！';
-                            showMessage(`上传成功：${response.filename}`, false);
-                            
-                            // 延迟刷新页面，让用户看到成功消息
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                        } catch (e) {
-                            showMessage('上传成功，但解析响应失败', false);
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                        }
-                    } else {
-                        let errorMsg = '上传失败';
-                        try {
-                            const error = JSON.parse(xhr.responseText);
-                            errorMsg = error.error || errorMsg;
-                        } catch (e) {
-                            errorMsg = `上传失败，状态码：${xhr.status}`;
-                        }
-                        showMessage(errorMsg, true);
-                        resetUploadState();
-                    }
-                });
-                
-                // 处理错误
-                xhr.addEventListener('error', function() {
-                    showMessage('网络错误：无法连接到服务器', true);
-                    resetUploadState();
-                });
-                
-                // 发送请求
-                xhr.open('POST', '/upload');
-                xhr.setRequestHeader('X-API-KEY', apiKey);
-                xhr.send(formData);
-                
-            } catch (error) {
-                showMessage(`上传失败：${error.message}`, true);
-                resetUploadState();
-                return false;
-            }
-            
-            return true;
+
+            modalInfo.innerHTML = `<strong>${filename}</strong><br>${formatFileSize(Number(size))} | ${modifiedTime}`;
+            modal.classList.add("active");
+
+            modalImage.onclick = (event) => event.stopPropagation();
+            modalVideo.onclick = (event) => event.stopPropagation();
         }
-        
-        // 处理文件选择
-        fileInput.addEventListener('change', function(e) {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) return;
-            
-            // 逐个上传文件
-            files.forEach((file, index) => {
-                setTimeout(() => {
-                    uploadFile(file);
-                }, index * 100); // 稍微延迟，避免同时上传多个文件
+
+        function closeModal() {
+            const modal = document.getElementById("imageModal");
+            const modalVideo = document.getElementById("modalVideo");
+            modal.classList.remove("active");
+            modalVideo.pause();
+            modalVideo.currentTime = 0;
+        }
+
+        tabButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                applyTabState(button.dataset.tab);
             });
-            
-            // 重置文件输入
-            fileInput.value = '';
         });
-        
-        // 拖拽上传功能
-        uploadArea.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', function(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            
-            const files = Array.from(e.dataTransfer.files).filter(file => {
-                return file.type.startsWith('image/');
-            });
-            
-            if (files.length === 0) {
-                showMessage('错误：请拖拽图片文件', true);
+
+        fileInput.addEventListener("change", (event) => {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) {
                 return;
             }
-            
-            // 逐个上传文件
             files.forEach((file, index) => {
                 setTimeout(() => {
                     uploadFile(file);
-                }, index * 100);
+                }, index * 120);
             });
+            fileInput.value = "";
         });
-        
-        // 点击上传按钮
-        uploadBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
+
+        uploadArea.addEventListener("click", () => fileInput.click());
+
+        uploadBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
             fileInput.click();
         });
+
+        uploadArea.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            uploadArea.classList.add("dragover");
+        });
+
+        uploadArea.addEventListener("dragleave", (event) => {
+            event.preventDefault();
+            uploadArea.classList.remove("dragover");
+        });
+
+        uploadArea.addEventListener("drop", (event) => {
+            event.preventDefault();
+            uploadArea.classList.remove("dragover");
+            const current = mediaConfig[activeTab];
+            const files = Array.from(event.dataTransfer.files || []).filter((file) => current.dragFilter(file));
+            if (!files.length) {
+                showMessage(`错误：请拖拽${current.label}文件`, true);
+                return;
+            }
+            files.forEach((file, index) => {
+                setTimeout(() => {
+                    uploadFile(file);
+                }, index * 120);
+            });
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                closeModal();
+            }
+        });
+
+        applyTabState(activeTab);
     </script>
 </body>
 </html>

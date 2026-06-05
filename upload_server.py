@@ -8,7 +8,7 @@ import os
 import json
 import logging
 from datetime import datetime
-from flask import Flask, request, jsonify, abort, send_from_directory, render_template
+from flask import Flask, request, jsonify, abort, send_from_directory, render_template, redirect, session
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 from remote_workflow_runner import create_remote_runner_routes
@@ -30,6 +30,7 @@ app = Flask(__name__)
 DEFAULT_CONFIG = {
     "port": 65360,
     "api_key": "default_secret_key_change_me",
+    "session_secret": "",
     "upload_dir": "images",
     "max_file_size": 1024 * 1024 * 1024  # 1GB
 }
@@ -73,8 +74,12 @@ VIDEO_MIME_TYPES = {
     "webm": "video/webm",
     "avi": "video/x-msvideo",
 }
+PAGE_AUTH_SESSION_KEY = "page_access_granted"
 # 设置最大文件大小
 app.config['MAX_CONTENT_LENGTH'] = config.get("max_file_size", 50 * 1024 * 1024)
+app.secret_key = config.get("session_secret") or config["api_key"]
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 
 def has_allowed_extension(filename, allowed_extensions):
@@ -97,8 +102,72 @@ def validate_api_key(api_key):
     return bool(api_key) and api_key == config["api_key"]
 
 
+def has_page_access():
+    """检查当前会话是否已通过页面访问鉴权。"""
+    return bool(session.get(PAGE_AUTH_SESSION_KEY))
+
+
+def mark_page_access_granted():
+    """标记当前会话已通过页面访问鉴权。"""
+    session[PAGE_AUTH_SESSION_KEY] = True
+
+
+def get_request_api_key():
+    """从表单、查询参数或请求头中提取 API 密钥。"""
+    if request.method == "POST":
+        form_key = str(request.form.get("key", "")).strip()
+        if form_key:
+            return form_key
+    return (
+        str(request.args.get("key", "")).strip()
+        or str(request.headers.get("X-API-KEY", "")).strip()
+    )
+
+
+def render_auth_page(action_url, page_title, page_heading, description, error=None):
+    """渲染通用鉴权页面。"""
+    return render_template(
+        "view_auth.html",
+        action_url=action_url,
+        page_title=page_title,
+        page_heading=page_heading,
+        description=description,
+        error=error,
+    )
+
+
+def require_page_access(action_url, page_title, page_heading, description):
+    """统一处理页面访问鉴权。"""
+    if has_page_access():
+        return None
+
+    api_key = get_request_api_key()
+    if not api_key:
+        return render_auth_page(action_url, page_title, page_heading, description)
+
+    if not validate_api_key(api_key):
+        return render_auth_page(
+            action_url,
+            page_title,
+            page_heading,
+            description,
+            error="API密钥无效，请重新输入",
+        ), 401
+
+    mark_page_access_granted()
+    return redirect(action_url)
+
+
+def has_runner_api_access():
+    """检查 remote-runner API 是否具备访问权限。"""
+    return has_page_access() or validate_api_key(get_request_api_key())
+
+
 def require_api_key(client_ip, action_label):
     """统一处理 API 密钥校验。"""
+    if has_page_access():
+        return "session", None, None
+
     api_key = request.headers.get("X-API-KEY", "")
     if not api_key:
         logger.warning(f"{action_label}缺少 API 密钥，来源IP: {client_ip}")
@@ -245,7 +314,19 @@ def format_size(size_bytes):
     return f"{size_bytes:.2f} TB"
 
 
-create_remote_runner_routes(app, logger, media_list_getter=get_media_list, app_config=config)
+create_remote_runner_routes(
+    app,
+    logger,
+    media_list_getter=get_media_list,
+    app_config=config,
+    page_access_guard=lambda: require_page_access(
+        "/remote-runner",
+        "Remote Runner - 身份验证",
+        "Remote Runner 身份验证",
+        "请输入 API 密钥以访问远端 Workflow 运行页面。",
+    ),
+    api_access_guard=lambda: (None if has_runner_api_access() else (jsonify({"error": "未授权访问"}), 401)),
+)
 
 
 def save_uploaded_file(file_storage, media_type, client_ip):
@@ -412,7 +493,7 @@ def delete_video(filename):
     return jsonify(payload), status_code
 
 
-@app.route('/view', methods=['GET'])
+@app.route('/view', methods=['GET', 'POST'])
 def view_images():
     """
     图片和视频预览页面
@@ -426,16 +507,14 @@ def view_images():
             "message": "请在 config.json 中设置 enable_view 为 true 以启用此功能"
         }), 404
     
-    # 获取API密钥（支持URL参数和请求头）
-    api_key = request.args.get('key', '') or request.headers.get('X-API-KEY', '')
-    
-    # 如果未提供密钥，显示密钥输入页面
-    if not api_key:
-        return render_template('view_auth.html')
-    
-    # 验证API密钥
-    if not validate_api_key(api_key):
-        return render_template('view_auth.html', error="API密钥无效，请重新输入")
+    access_response = require_page_access(
+        "/view",
+        "媒体预览 - 身份验证",
+        "媒体预览身份验证",
+        "请输入 API 密钥以访问图片和视频预览页面。",
+    )
+    if access_response is not None:
+        return access_response
     
     # 获取图片和视频列表
     image_list = get_media_list("image")
@@ -459,7 +538,8 @@ def view_images():
         video_list=video_list,
         image_count=len(image_list),
         video_count=len(video_list),
-        total_size=format_size(total_size)
+        total_size=format_size(total_size),
+        default_tab="image" if image_list or not video_list else "video",
     )
 
 @app.route('/upload_video', methods=['POST'])
