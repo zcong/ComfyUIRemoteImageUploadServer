@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import json
+import random
 import re
 import time
 from dataclasses import dataclass
@@ -349,6 +350,30 @@ def apply_params(workflow: dict[str, Any], form_state: dict[str, Any]) -> dict[s
     return cloned
 
 
+def apply_random_seeds(workflow: dict[str, Any]) -> dict[str, Any]:
+    for node_data in workflow.values():
+        if not isinstance(node_data, dict):
+            continue
+
+        class_type = str(node_data.get("class_type") or "").strip().lower()
+        if "ksampler" not in class_type:
+            continue
+
+        inputs = node_data.get("inputs", {})
+        if not isinstance(inputs, dict):
+            continue
+
+        for seed_key in ("seed", "noise_seed"):
+            current_value = inputs.get(seed_key)
+            if isinstance(current_value, list):
+                continue
+            if current_value is None:
+                continue
+            inputs[seed_key] = random.randint(0, 2**63 - 1)
+
+    return workflow
+
+
 def collect_missing_prompt_node_references(workflow: Any) -> list[dict[str, str]]:
     if not isinstance(workflow, dict):
         return []
@@ -664,6 +689,7 @@ def create_remote_runner_routes(
 
         try:
             built_workflow = apply_params(template, form_state)
+            built_workflow = apply_random_seeds(built_workflow)
             ensure_prompt_graph_is_valid(built_workflow)
             submit_result = submit_prompt(base_url, built_workflow)
             prompt_id = submit_result.get("prompt_id")

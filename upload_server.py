@@ -66,7 +66,6 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
 ALLOWED_VIDEO_EXTENSIONS = {
     "mp4", "mov", "mkv", "webm", "avi"
 }
-BASE36_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 VIDEO_MIME_TYPES = {
     "mp4": "video/mp4",
     "mov": "video/quicktime",
@@ -212,24 +211,9 @@ def resolve_media_path(filename, media_type):
     return safe_filename, file_path
 
 
-def encode_base36(number, min_width=1):
-    """将非负整数编码为固定宽度的 base36 字符串，便于短文件名按字典序排序。"""
-    if number < 0:
-        raise ValueError("number must be non-negative")
-    if number == 0:
-        encoded = "0"
-    else:
-        chars = []
-        while number:
-            number, remainder = divmod(number, 36)
-            chars.append(BASE36_ALPHABET[remainder])
-        encoded = "".join(reversed(chars))
-    return encoded.rjust(min_width, "0")
-
-
 def generate_filename(original_filename):
     """
-    生成按时间可排序的新文件名。
+    生成数字时间戳命名的新文件名。
     
     Args:
         original_filename: 原始文件名
@@ -242,20 +226,24 @@ def generate_filename(original_filename):
     else:
         ext = 'png'
 
-    prefix = "v" if ext in ALLOWED_VIDEO_EXTENSIONS else "i"
-    timestamp = encode_base36(int(time.time() * 1000), min_width=8)
-    return f"{prefix}_{timestamp}.{ext}"
+    timestamp = str(time.time_ns())
+    return f"{timestamp}.{ext}"
 
 
 def build_unique_save_path(filename):
-    """为文件名生成不冲突的保存路径。"""
-    save_path = os.path.join(UPLOAD_FOLDER, filename)
-    if os.path.exists(save_path):
-        timestamp = encode_base36(time.time_ns() % (36 ** 2), min_width=2)
-        name, ext = os.path.splitext(filename)
-        filename = f"{name}_{timestamp}{ext}"
+    """为文件名生成不冲突的保存路径，并保持纯数字时间排序。"""
+    name, ext = os.path.splitext(filename)
+    try:
+        candidate = int(name)
+    except ValueError:
+        candidate = time.time_ns()
+
+    while True:
+        filename = f"{candidate}{ext}"
         save_path = os.path.join(UPLOAD_FOLDER, filename)
-    return filename, save_path
+        if not os.path.exists(save_path):
+            return filename, save_path
+        candidate += 1
 
 
 def build_media_entry(filename, file_stat, url_prefix):

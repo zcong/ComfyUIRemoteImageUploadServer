@@ -195,6 +195,16 @@ async function handleLoadWorkflow() {
   renderStatus("idle", "API workflow 已加载，可以填写表单并运行。");
 }
 
+function handleWorkflowFileChange() {
+  if (!(elements.workflowFile.files ?? []).length) {
+    return;
+  }
+
+  handleLoadWorkflow().catch((error) => {
+    renderStatus("failed", error.message || "加载 workflow 失败");
+  });
+}
+
 async function handleRunWorkflow() {
   if (!state.workflowTemplate) {
     return;
@@ -229,6 +239,8 @@ async function handleRefreshResults() {
 elements.loadWorkflowButton.addEventListener("click", () => {
   handleLoadWorkflow().catch((error) => renderStatus("failed", error.message || "加载 workflow 失败"));
 });
+
+elements.workflowFile.addEventListener("change", handleWorkflowFileChange);
 
 elements.runButton.addEventListener("click", () => {
   handleRunWorkflow().catch((error) => renderStatus("failed", error.message || "执行 workflow 失败"));
