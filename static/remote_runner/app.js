@@ -38,17 +38,25 @@ const elements = {
   statusUpdatedAt: document.querySelector("#status-updated-at"),
   resultsGrid: document.querySelector("#results-grid"),
   resultsEmpty: document.querySelector("#results-empty"),
+  responseDetail: document.querySelector("#response-detail"),
+  responseStatus: document.querySelector("#response-status"),
+  responseUrl: document.querySelector("#response-url"),
+  responseContentType: document.querySelector("#response-content-type"),
+  responseBody: document.querySelector("#response-body"),
 };
 
 const monitor = new JobMonitor({
   fetchHistory: (baseUrl, promptId) => apiClient.getHistory(baseUrl, promptId),
   onUpdate: (payload) => {
     renderStatus(payload.status, payload.message, payload.promptId);
+    renderRemoteResponse(null);
     state.results = payload.results ?? [];
     renderResults(state.results);
   },
   onError: (error) => {
     renderStatus("failed", error.message || "状态查询失败", state.promptId);
+    renderRemoteResponse(error.remoteResponse);
+    renderResults(state.results);
   },
 });
 
@@ -132,9 +140,50 @@ function renderStatus(status, message, promptId = "") {
   elements.refreshResultsButton.disabled = !promptId;
 }
 
+function getHeaderValue(headers = {}, name) {
+  const target = name.toLowerCase();
+  const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === target);
+  return entry?.[1] ?? "-";
+}
+
+function formatRemoteResponse(remoteResponse) {
+  const sections = [];
+  if (remoteResponse.detail) {
+    sections.push(`Detail:\n${remoteResponse.detail}`);
+  }
+  if (remoteResponse.headers && Object.keys(remoteResponse.headers).length > 0) {
+    sections.push(`Headers:\n${JSON.stringify(remoteResponse.headers, null, 2)}`);
+  }
+  sections.push(`Body:\n${remoteResponse.body || "(empty response body)"}`);
+  if (remoteResponse.truncated) {
+    sections.push("Response body was truncated in the local display.");
+  }
+  return sections.join("\n\n");
+}
+
+function renderRemoteResponse(remoteResponse) {
+  const hasResponse = Boolean(remoteResponse);
+  elements.responseDetail.classList.toggle("hidden", !hasResponse);
+  if (!hasResponse) {
+    elements.responseStatus.textContent = "-";
+    elements.responseUrl.textContent = "-";
+    elements.responseContentType.textContent = "-";
+    elements.responseBody.textContent = "";
+    return;
+  }
+
+  const method = remoteResponse.method || "GET";
+  const status = remoteResponse.status ? `HTTP ${remoteResponse.status}` : "No HTTP status";
+  elements.responseStatus.textContent = `${method} ${status}`;
+  elements.responseUrl.textContent = remoteResponse.url || "-";
+  elements.responseContentType.textContent = getHeaderValue(remoteResponse.headers, "content-type");
+  elements.responseBody.textContent = formatRemoteResponse(remoteResponse);
+}
+
 function renderResults(results) {
   elements.resultsGrid.innerHTML = "";
-  elements.resultsEmpty.classList.toggle("hidden", results.length > 0);
+  const hasResponseDetail = !elements.responseDetail.classList.contains("hidden");
+  elements.resultsEmpty.classList.toggle("hidden", results.length > 0 || hasResponseDetail);
 
   results.forEach((item) => {
     const card = document.createElement("article");
@@ -168,6 +217,7 @@ async function bootstrap() {
 
   elements.baseUrl.value = state.config.baseUrl;
   renderStatus("idle", "等待加载 workflow。");
+  renderRemoteResponse(null);
   renderResults([]);
 }
 
@@ -191,6 +241,7 @@ async function handleLoadWorkflow() {
 
   renderSummary();
   renderDynamicForm();
+  renderRemoteResponse(null);
   renderResults([]);
   renderStatus("idle", "API workflow 已加载，可以填写表单并运行。");
 }
@@ -202,6 +253,8 @@ function handleWorkflowFileChange() {
 
   handleLoadWorkflow().catch((error) => {
     renderStatus("failed", error.message || "加载 workflow 失败");
+    renderRemoteResponse(error.remoteResponse);
+    renderResults(state.results);
   });
 }
 
@@ -213,6 +266,9 @@ async function handleRunWorkflow() {
   syncConfigFromInputs();
   const runtimeWorkflow = buildWorkflow(state.workflowTemplate, state.formState);
   elements.workflowPreview.textContent = JSON.stringify(runtimeWorkflow, null, 2);
+  state.results = [];
+  renderRemoteResponse(null);
+  renderResults([]);
   renderStatus("queued", "正在提交 workflow 到远端 ComfyUI...");
 
   const payload = await apiClient.submitPrompt({
@@ -232,22 +288,35 @@ async function handleRefreshResults() {
   }
   const payload = await apiClient.getHistory(state.config.baseUrl, state.promptId);
   renderStatus(payload.status, payload.message, payload.promptId);
+  renderRemoteResponse(null);
   state.results = payload.results ?? [];
   renderResults(state.results);
 }
 
 elements.loadWorkflowButton.addEventListener("click", () => {
-  handleLoadWorkflow().catch((error) => renderStatus("failed", error.message || "加载 workflow 失败"));
+  handleLoadWorkflow().catch((error) => {
+    renderStatus("failed", error.message || "加载 workflow 失败");
+    renderRemoteResponse(error.remoteResponse);
+    renderResults(state.results);
+  });
 });
 
 elements.workflowFile.addEventListener("change", handleWorkflowFileChange);
 
 elements.runButton.addEventListener("click", () => {
-  handleRunWorkflow().catch((error) => renderStatus("failed", error.message || "执行 workflow 失败"));
+  handleRunWorkflow().catch((error) => {
+    renderStatus("failed", error.message || "执行 workflow 失败", state.promptId);
+    renderRemoteResponse(error.remoteResponse);
+    renderResults(state.results);
+  });
 });
 
 elements.refreshResultsButton.addEventListener("click", () => {
-  handleRefreshResults().catch((error) => renderStatus("failed", error.message || "刷新结果失败"));
+  handleRefreshResults().catch((error) => {
+    renderStatus("failed", error.message || "刷新结果失败", state.promptId);
+    renderRemoteResponse(error.remoteResponse);
+    renderResults(state.results);
+  });
 });
 
 elements.baseUrl.addEventListener("input", () => {

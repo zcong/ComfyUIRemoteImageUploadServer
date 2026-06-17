@@ -23,6 +23,43 @@ UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
+MAX_REMOTE_RESPONSE_CHARS = 20000
+
+
+class RemoteRequestError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        url: str,
+        method: str,
+        status: int | None = None,
+        headers: dict[str, str] | None = None,
+        body: str | None = None,
+        detail: str | None = None,
+    ):
+        super().__init__(message)
+        self.url = url
+        self.method = method
+        self.status = status
+        self.headers = headers or {}
+        self.body = body or ""
+        self.detail = detail or ""
+
+    def to_dict(self) -> dict[str, Any]:
+        body = self.body
+        truncated = len(body) > MAX_REMOTE_RESPONSE_CHARS
+        if truncated:
+            body = body[:MAX_REMOTE_RESPONSE_CHARS]
+        return {
+            "url": self.url,
+            "method": self.method,
+            "status": self.status,
+            "headers": self.headers,
+            "body": body,
+            "truncated": truncated,
+            "detail": self.detail,
+        }
 
 
 @dataclass
@@ -479,14 +516,35 @@ def fetch_remote_json(url: str, method: str = "GET", payload: dict[str, Any] | N
     try:
         with request.urlopen(req, timeout=30) as response:
             body = response.read().decode("utf-8")
-            return json.loads(body) if body else {}
+            try:
+                return json.loads(body) if body else {}
+            except json.JSONDecodeError as exc:
+                raise RemoteRequestError(
+                    "Remote response is not valid JSON",
+                    url=url,
+                    method=method,
+                    status=response.status,
+                    headers=dict(response.headers.items()),
+                    body=body,
+                    detail=str(exc),
+                ) from exc
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Remote request failed ({exc.code}): {detail}") from exc
+        raise RemoteRequestError(
+            f"Remote request failed ({exc.code}): {detail}",
+            url=url,
+            method=method,
+            status=exc.code,
+            headers=dict(exc.headers.items()),
+            body=detail,
+        ) from exc
     except error.URLError as exc:
-        raise RuntimeError(f"Remote request failed: {exc.reason}") from exc
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Remote response is not valid JSON") from exc
+        raise RemoteRequestError(
+            f"Remote request failed: {exc.reason}",
+            url=url,
+            method=method,
+            detail=str(exc.reason),
+        ) from exc
 
 
 def load_workflow(base_url: str, workflow_name: str) -> dict[str, Any]:
@@ -624,6 +682,12 @@ def create_remote_runner_routes(
             return api_access_guard()
         return None
 
+    def jsonify_error(exc: Exception):
+        payload: dict[str, Any] = {"error": str(exc)}
+        if isinstance(exc, RemoteRequestError):
+            payload["remoteResponse"] = exc.to_dict()
+        return jsonify(payload), 400
+
     @app.route("/remote-runner", methods=["GET", "POST"])
     def remote_runner_index():
         access_response = ensure_page_access()
@@ -672,7 +736,7 @@ def create_remote_runner_routes(
             )
         except Exception as exc:
             logger.exception("加载上传的 workflow 失败")
-            return jsonify({"error": str(exc)}), 400
+            return jsonify_error(exc)
 
     @app.post("/api/remote-runner/prompts/submit")
     def remote_runner_submit_prompt():
@@ -711,7 +775,7 @@ def create_remote_runner_routes(
             )
         except Exception as exc:
             logger.exception("提交远端 workflow 失败")
-            return jsonify({"error": str(exc)}), 400
+            return jsonify_error(exc)
 
     @app.get("/api/remote-runner/prompts/<prompt_id>/history")
     def remote_runner_prompt_history(prompt_id: str):
@@ -737,4 +801,4 @@ def create_remote_runner_routes(
             )
         except Exception as exc:
             logger.exception("查询远端 workflow 状态失败")
-            return jsonify({"error": str(exc)}), 400
+            return jsonify_error(exc)

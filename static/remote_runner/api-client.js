@@ -1,3 +1,9 @@
+function createRequestError(payload, fallbackMessage) {
+  const error = new Error(payload.error || fallbackMessage);
+  error.remoteResponse = payload.remoteResponse || null;
+  return error;
+}
+
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     headers: {
@@ -9,7 +15,7 @@ async function requestJson(url, options = {}) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || `Request failed: ${response.status}`);
+    throw createRequestError(payload, `Request failed: ${response.status}`);
   }
   return payload;
 }
@@ -37,7 +43,7 @@ export const apiClient = {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.error || `Request failed: ${response.status}`);
+      throw createRequestError(payload, `Request failed: ${response.status}`);
     }
     return payload;
   },

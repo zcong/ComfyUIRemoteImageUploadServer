@@ -226,7 +226,7 @@ def generate_filename(original_filename):
     else:
         ext = 'png'
 
-    timestamp = str(time.time_ns())
+    timestamp = str(int(time.time()))
     return f"{timestamp}.{ext}"
 
 
